@@ -1,0 +1,252 @@
+1.1 Product Name
+    AI Interview Practice Platform
+    Working name: StackPrep
+
+1.2 Product Overview
+IntervAI is a web-based AI interview practice platform that allows users to simulate realistic technical and behavioral interviews.
+Users can:
+- Select a target job role.
+- Select interview type and difficulty.
+- Upload their resume.
+- Receive AI-generated questions.
+- Submit text or voice answers.
+- Receive AI-based evaluation.
+- Get adaptive follow-up questions.
+- View their interview performance.
+- Track improvement over multiple interviews.
+- Receive personalized recommendations.
+The core differentiator is:
+The interview adapts to the candidate's resume, selected role, and previous answers rather than presenting a fixed list of questions.
+
+.3 Problem Statement
+Many candidates practice interviews using:
+- Static question lists
+- YouTube videos
+- Generic chatbots
+- Fixed mock-test platforms
+These approaches don't provide a realistic adaptive interview experience.
+For example:
+A candidate says:
+"I used Redis for caching."
+
+A static platform moves to Question 5.
+IntervAI instead asks:
+"You mentioned Redis. What data did you cache and how did you decide what should be cached?"
+
+
+1.4 Target Users
+Primary users
+- College students
+- Fresh graduates
+- Junior developers
+- Software engineers preparing for job changes
+- Candidates preparing for technical interviews
+Initial target roles
+- Frontend Developer
+- Backend Developer
+- Full Stack Developer
+- Software Engineer
+- Data Analyst
+- QA Engineer
+
+few more roles will come in future
+
+1.5 Product Goals
+Goal 1 — Personalized interviews
+Questions should be generated based on:
+Job Role
++
+Experience
++
+Skills
++
+Resume
++
+Previous Answers
+
+Goal 2 — Adaptive interviews
+The AI should change subsequent questions based on the candidate's previous responses.
+Goal 3 — Useful evaluation
+The platform should provide more than:
+"Good answer."
+
+It should evaluate:
+- Technical accuracy
+- Completeness
+- Clarity
+- Relevance
+- Communication
+- Missing concepts
+Goal 4 — Long-term improvement
+Users should be able to compare:
+Interview 1 → 62%
+Interview 2 → 68%
+Interview 3 → 74%
+Interview 4 → 81%
+
+1.6 Core User Journey
+                    START
+                      │
+                      ▼
+                Landing Page
+                      │
+                      ▼
+                Login / Signup
+                      │
+                      ▼
+                 Dashboard
+                      │
+          ┌───────────┴───────────┐
+          ▼                       ▼
+     Upload Resume          Start Interview
+          │                       │
+          ▼                       ▼
+     Resume Parsing         Select Role
+          │                       │
+          ▼                       ▼
+     Skill Extraction       Select Difficulty
+          │                       │
+          └───────────┬───────────┘
+                      ▼
+              Interview Setup
+                      │
+                      ▼
+               AI Question
+                      │
+                      ▼
+                 User Answer
+                      │
+                      ▼
+                AI Evaluation
+                      │
+                      ▼
+             Adaptive Follow-up
+                      │
+                      ▼
+                 Next Question
+                      │
+                      ▼
+                  Continue
+                      │
+                      ▼
+              Interview Complete
+                      │
+                      ▼
+               Final Evaluation
+                      │
+                      ▼
+               AI Performance
+                   Report
+                      │
+                      ▼
+                 Dashboard
+
+1.7 MVP Features
+The first version should contain only these features.
+Authentication
+- Signup
+- Login
+- Logout
+- Protected dashboard
+Interview setup
+User chooses:
+- Role
+- Experience level
+- Interview type
+- Difficulty
+- Number of questions
+AI interview
+- AI-generated questions
+- Answer submission
+- AI evaluation
+- Next question
+Results
+- Overall score
+- Question-wise score
+- Feedback
+- Strengths
+- Weaknesses
+History
+- Previous interviews
+- Scores
+- Date
+- Role
+
+1.8 Version 2 Features
+After MVP:
+Resume analysis
+Resume
+ ↓
+Parser
+ ↓
+AI
+ ↓
+Skills
+ ↓
+Projects
+ ↓
+Experience
+Questions become personalized.
+
+Adaptive questions
+Answer
+ ↓
+AI analysis
+ ↓
+Identify weakness
+ ↓
+Follow-up question
+Performance analytics
+- Score history
+- Skill-wise performance
+- Weak topics
+- Improvement percentage
+
+1.9 Version 3 Features
+Voice interviews
+Microphone
+ ↓
+Speech-to-text
+ ↓
+Transcript
+ ↓
+AI evaluation
+Coding round
+- Coding problems
+- Monaco editor
+- Test cases
+- Code execution
+- AI code review
+AI preparation plan
+After an interview:
+Weak:
+System Design
+Database Indexing
+Redis
+
+        ↓
+
+7-Day Preparation Plan
+
+
+1.10 Non-Goals
+Don't build these initially:
+- Video calling
+- Human interviewer marketplace
+- Job application automation
+- Full LMS/course platform
+- Recruitment management system
+- Social network
+- Payment system
+These can distract from the core product.
+
+1.11 Success Metrics
+For a real product:
+Interview completion rate
+Average interviews/user
+Average answer evaluation latency
+AI failure rate
+Daily active users
+Interview repeat rate
+Average user score improvement
+
