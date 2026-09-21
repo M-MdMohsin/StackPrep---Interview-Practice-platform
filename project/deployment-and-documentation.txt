@@ -1,0 +1,60 @@
+STEP 17 — Deployment and documentation
+
+This was previously just a bullet checklist inside Step 16 (caching/performance). Checklists at the bottom of a testing doc are easy to skip, and this is the step that actually makes the project visible to recruiters/interviewers — so it gets promoted to its own step.
+
+Goal:
+Ship the application to a live, shareable URL with documentation that supports both a resume bullet and an interview conversation.
+
+
+Deployment
+
+Backend:
+- Dockerfile finalized (already scaffolded in the backend structure from Step 2).
+- Deploy to Railway or Render (or equivalent) — connect PostgreSQL, Redis/Upstash, and environment secrets (GEMINI_API_KEY etc., server-side only, per TRD 2.13).
+- Run Prisma migrations against the production database as part of deploy, not manually.
+
+Frontend:
+- Deploy to Vercel.
+- Point at the deployed backend URL via environment config.
+- Confirm protected routes, AI request flows, and file upload work against the live backend, not just localhost.
+
+Environment/secrets:
+- Confirm no NEXT_PUBLIC_*-prefixed secret ever holds an AI provider key (TRD 2.13).
+- CORS allowlist updated to the real frontend domain, not left as a wildcard.
+
+Production checklist (consolidated from Step 16, now with the items added by later flags):
+- Docker
+- GitHub Actions (lint/type-check/test/eval gates from Step 15 passing on main)
+- Environment secrets configured server-side
+- Logging (Pino, structured, per TRD 2.9)
+- Rate limiting
+- Per-user AI usage caps (daily/monthly, independent of rate limits)
+- AI provider fallback configured and tested (kill the primary provider key temporarily to confirm fallback actually fires)
+- Evaluation regression gate wired into CI
+- Redis caching live in production, not just local
+- Background job queue (BullMQ) running against production Redis
+- PostgreSQL + pgvector provisioned in production
+- Security controls (resume AND answer prompt-injection defense) verified against the deployed app, not just unit tests
+- Idempotent retries verified manually against the live deployment
+- Resume data retention/deletion working end-to-end in production
+- Load-test report generated against the deployed environment, not localhost (numbers from a laptop aren't representative)
+- Architecture documentation published
+
+
+Documentation
+
+README should include:
+- One-paragraph product description and the core differentiator (adaptive interview, not a fixed question list — PRD 1.2/1.3).
+- Architecture diagram (can reuse/adapt TRD 2.1's diagram).
+- Live demo link and a short GIF/screen recording of the interview-taking flow (Step 9.1) — a live link plus visual proof matters more than a GitHub-only repo.
+- Setup instructions for running locally (env vars, migrations, seed data if any).
+- Measured results only: load-test p50/p95/p99 numbers from Step 16, eval golden-set pass rate from Step 14, cache hit rate — every number in the README must trace back to an actual run, never an estimate (TRD 2.17's rule applies here too).
+
+Additional docs (docs/ folder from Step 2):
+- API documentation (endpoints, auth requirements, request/response shapes).
+- Security documentation (what's protected, how prompt-injection defense works at a high level, rate limits and usage caps).
+- Evaluation report (latest golden-set run summary, linked from the README).
+- Load-test report (latest benchmark run, per Step 16's reporting format).
+
+Deliverable:
+The project is live at a public URL, the README lets a stranger understand and run it in under five minutes, and every performance/quality claim in it is backed by an actual measurement rather than an estimate.

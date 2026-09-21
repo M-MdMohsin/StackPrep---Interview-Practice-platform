@@ -1,0 +1,158 @@
+STEPS 2–5 — FOUNDATION + INTERVIEW CORE
+
+STEP 2 — Set up project structure
+Goal:
+Create the monorepo/project structure for the AI Interview Practice Platform.
+
+Frontend:
+- Next.js
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- React Hook Form
+- Zod
+- TanStack Query
+
+Backend:
+- Node.js
+- TypeScript
+- Express.js
+- Zod
+- Prisma
+- Pino
+- Helmet
+- CORS
+
+Suggested structure:
+frontend/
+backend/
+docs/
+evals/
+
+Backend:
+backend/src/config
+backend/src/controllers
+backend/src/routes
+backend/src/middleware
+backend/src/services
+backend/src/validators
+backend/src/prompts
+backend/src/jobs
+backend/Dockerfile
+
+Backend (added to Step 2 stack):
+- BullMQ (background job queue, used starting Step 11 for embedding generation and other non-interactive work)
+- Dockerfile scaffolded now (empty/minimal), filled in properly at Step 17 deployment — having it from the start keeps "does it build in a container" a running concern instead of a last-minute scramble.
+
+Deliverable:
+- Frontend runs locally.
+- Backend runs locally.
+- Environment variables are configured.
+- Git repository initialized.
+
+
+STEP 3 — PostgreSQL + Prisma
+Goal:
+Create the relational data foundation.
+
+Initial models:
+- User
+- Resume
+- Interview
+- Question
+- Answer
+- Evaluation
+- UsageLimit (per-user daily/monthly AI usage caps — see Step 7)
+- AIUsage (per-request record: userId, provider, model, requestType, promptVersion, inputTokens, outputTokens, estimatedCost, latency, cacheHit, retryCount, status, failureCategory, createdAt — populated starting Step 7, needed for both usage-cap enforcement and cost observability in Step 13)
+- PromptVersion (id, task, version label, model, provider, createdAt — referenced by AIUsage and by evaluation records so every AI call can be traced back to the exact prompt that produced it)
+- EvalRun (id, triggeredBy, promptVersionId, datasetVersion, startedAt, completedAt, passFail, summaryMetrics — one row per execution of the golden-set regression suite in Step 14)
+- EvalResult (id, evalRunId, goldenSetItemId, actualScore, expectedScoreRange, conceptsMatched, judgeScore, pass/fail — one row per golden-set item within an EvalRun)
+
+Important relationships:
+User → Interview
+Interview → Question
+Question → Answer
+Answer → Evaluation
+User → UsageLimit
+User → Resume (cascade delete: deleting a resume or account must cascade to resume-derived data added in Step 11 — chunks and embeddings)
+User → AIUsage
+PromptVersion → AIUsage
+PromptVersion → Evaluation (which prompt version produced a given evaluation)
+EvalRun → EvalResult (one-to-many)
+PromptVersion → EvalRun
+
+Note:
+These four models (AIUsage, PromptVersion, EvalRun, EvalResult) are created here in the foundation step, even though nothing writes to them until Step 7 (AIUsage), Step 8 (prompt-version tagging on Evaluation), and Step 14 (EvalRun/EvalResult) — this avoids a schema migration mid-build once usage tracking and evals are implemented.
+
+Add:
+- Primary keys
+- Foreign keys
+- Created/updated timestamps
+- Useful indexes
+- Cascade rules where appropriate (required for resume deletion, not optional — see Step 10)
+
+Deliverable:
+- PostgreSQL connected.
+- Prisma schema created.
+- Initial migration applied.
+- Prisma client available to backend services.
+
+
+STEP 4 — Authentication + authorization
+Goal:
+Secure private application resources.
+
+Implement:
+- Signup/login/logout through the selected auth solution.
+- Protected dashboard.
+- Auth middleware.
+- Current-user endpoint.
+- Object-level authorization.
+
+Rules:
+- User A must never access User B's resume.
+- User A must never access User B's interview.
+- User A must never access User B's answers/evaluations.
+
+Deliverable:
+- Protected routes work.
+- Unauthorized requests return appropriate errors.
+- Ownership checks are implemented at service/controller boundaries.
+
+
+STEP 5 — Interview setup
+Goal:
+Allow users to create a mock interview.
+
+Interview configuration:
+- Role
+- Experience level
+- Interview type
+- Difficulty
+- Number of questions
+
+Example roles:
+- Frontend Developer
+- Backend Developer
+- Full Stack Developer
+- Software Engineer
+- Data Analyst
+- QA Engineer
+
+Create:
+POST /api/interviews
+
+Store:
+- userId
+- role
+- experienceLevel
+- interviewType
+- difficulty
+- questionLimit
+- status
+
+Note:
+Interview creation should be checked against the user's UsageLimit (daily/monthly cap) in addition to the per-hour rate limit — the cap enforcement itself is implemented in Step 7, but the interview creation endpoint is one of the checkpoints that calls it.
+
+Deliverable:
+User can create and view an interview configuration.

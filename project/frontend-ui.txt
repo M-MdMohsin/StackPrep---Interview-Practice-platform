@@ -1,0 +1,48 @@
+STEPS 9.1 & 16.1 — FRONTEND UI
+
+These two steps were missing from the original step breakdown, which covered backend/AI logic in depth but never had a dedicated step for the screens a user actually sees. Step 9.1 slots in after the interview engine (Step 9) so the interview-taking flow can be built and demoed as soon as the backend supports it. Step 16.1 slots in after caching/performance (Step 16) so the dashboard/results/history views come after the data they display already exists.
+
+Without these two steps, the project plan risks producing a well-engineered API with no usable product to show in a demo or screen-record for a resume/portfolio link.
+
+
+STEP 9.1 — Frontend: Interview-taking flow
+Goal:
+Let a user actually take an interview through the browser, not just via API calls.
+
+Screens/flow:
+- Interview setup screen (role, experience level, interview type, difficulty, number of questions — calls POST /api/interviews from Step 5).
+- Active interview screen:
+  - Displays the current AI-generated question.
+  - Text answer input (voice input is out of scope until Phase 7/V3 — see PRD).
+  - Submit triggers POST to the answer-evaluation endpoint from Step 8.
+  - Shows a loading state while the AI evaluates (this can take several seconds — do not leave the user staring at a frozen button).
+  - Displays the evaluation (score breakdown, strengths, weaknesses, missing concepts) before moving to the next/follow-up question.
+- Handle and visibly surface, not silently swallow:
+  - AI provider timeout/failure (show retry, not a blank screen).
+  - Usage-cap exceeded (Step 7) — show a clear message, not a generic 429.
+  - Validation errors on submitted answers.
+- Interview-complete screen transitioning to the final report (overall score, question-by-question breakdown, strengths/weaknesses summary — data comes from the Results scope defined in PRD 1.7).
+
+State management:
+- TanStack Query for server state (question, evaluation, interview status).
+- Track interview progress (current question index, completed vs. remaining) in local component/URL state, not global state — this avoids sync bugs between what the server has recorded and what the UI shows.
+
+Deliverable:
+A user can complete an entire interview end-to-end through the UI: configure → answer questions → see evaluations → reach a final report, with loading and error states handled, not just the happy path.
+
+
+STEP 16.1 — Frontend: Dashboard, results, and history
+Goal:
+Let a user see their own progress over time, not just a single interview's result.
+
+Screens:
+- Dashboard (landing after login): recent interviews, quick "start new interview" action, headline stats (e.g. average score, interviews completed).
+- Interview history list: past interviews with date, role, difficulty, overall score — paginated, not a single unbounded list.
+- Interview detail/report view: full question-by-question breakdown for a past interview, matching the final report shown right after completing one (Step 9.1) so the experience is consistent whether viewed live or from history.
+- Progress chart (Recharts): score trend across interviews, matching PRD 1.8's "62% → 68% → 74% → 81%" improvement narrative — this is one of the more resume/demo-worthy visuals in the product, worth polishing.
+
+Data source:
+- All screens read from the History and Results endpoints already implied by MVP scope (PRD 1.7) — this step assumes those endpoints exist; if they don't yet, add them here rather than inventing new backend work silently inside a "frontend" step.
+
+Deliverable:
+A user can log in, see their historical performance at a glance, drill into any past interview's full report, and see a visual trend of improvement across interviews.

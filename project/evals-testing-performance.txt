@@ -1,0 +1,196 @@
+STEPS 14–16 — EVALS + TESTING + PERFORMANCE
+
+STEP 14 — LLM evaluation pipeline
+Goal:
+Measure the quality of the AI evaluator itself.
+
+Create:
+evals/
+├── datasets/
+├── prompts/
+├── runners/
+├── judges/
+├── metrics/
+└── reports/
+
+Storage split (avoids the file-vs-database ambiguity from earlier drafts):
+- evals/datasets/ — the versioned golden-set JSON files themselves (source of truth for test cases, lives in git).
+- evals/reports/ — human-readable output per run (markdown/JSON snapshot), kept as CI build artifacts for quick review in a PR.
+- Database (EvalRun, EvalResult — created in Step 3) — the queryable record of every run: pass/fail, scores, which promptVersion was used, and timestamps. This is what lets you later chart "evaluator quality over time" rather than digging through report files.
+Every regression run writes to both: a report file for humans reviewing a PR, and EvalRun/EvalResult rows for longer-term tracking and dashboards.
+
+Golden set:
+- Start with approximately 50 manually reviewed answers.
+- Include strong, average, weak, incomplete, incorrect, off-topic, and ambiguous answers.
+- Store expected score ranges.
+- Store expected concepts/criteria.
+- Version the dataset.
+
+Regression flow:
+
+Golden Set
+ ↓
+Current Evaluator
+ ↓
+Compare With Baseline
+ ↓
+Quality Metrics
+ ↓
+LLM-as-Judge
+ ↓
+Regression Gate
+ ↓
+Pass / Fail
+
+Track:
+- Score consistency.
+- Required concept coverage.
+- Feedback relevance.
+- Feedback usefulness.
+- LLM-as-judge quality.
+- Critical regressions.
+
+Every evaluation should record:
+- prompt version
+- model
+- provider
+- schema version
+- timestamp
+
+Prompt/model changes should run the evaluation suite before deployment.
+
+
+STEP 15 — Testing + CI/CD
+Goal:
+Make the project reliable and production-oriented.
+
+Unit tests:
+- Score validation.
+- Business rules.
+- Cache-key generation.
+- Authorization helpers.
+- Prompt-injection detection (resume AND answer text).
+- Usage-cap logic (daily/monthly limit calculation).
+
+Integration tests:
+- Create interview.
+- Generate question.
+- Submit answer.
+- Evaluate answer.
+- Generate follow-up.
+- Complete interview.
+- Retry question generation (verify idempotency — no duplicate question created).
+- Retry answer evaluation (verify idempotency — no duplicate evaluation/AI call).
+- Delete resume (verify chunks/embeddings cascade correctly).
+
+API/security tests:
+- Unauthorized access.
+- Cross-user resource access.
+- Rate limits.
+- Usage-cap enforcement (user blocked after daily/monthly cap reached).
+- Invalid requests.
+- Invalid file uploads.
+- Malicious answer text rejected/flagged by injection detection.
+
+AI tests:
+- Golden-set regression.
+- Structured-output validation.
+- Prompt-version comparison.
+- LLM-as-judge checks.
+
+GitHub Actions PR pipeline:
+1. Install dependencies.
+2. Lint.
+3. Type-check.
+4. Run unit tests.
+5. Run integration/API tests.
+6. Run AI eval regression.
+7. Generate reports.
+8. Fail if configured quality gates fail.
+
+Deliverable:
+Every pull request automatically checks application and AI quality.
+
+
+STEP 16 — Caching + load testing + production benchmark
+Goal:
+Measure and optimize the application's real performance.
+
+Caching:
+Use Redis/Upstash for:
+- Question-generation cache.
+- Semantic cache.
+- Retrieval cache.
+- Rate limiting.
+
+Background jobs:
+Use BullMQ (Redis-backed, set up in Step 2/6) for embedding generation on resume upload so it doesn't block the upload request. Measure job queue latency (time from enqueue to embedding availability) as part of the performance picture, not just request/response latency.
+
+Cache key should include:
+- Task
+- Role
+- Difficulty
+- Context hash
+- Prompt version
+- Model
+- Provider
+- Schema version
+
+Do not blindly cache user-specific answer evaluations.
+
+Measure:
+- Cache hit rate.
+- Cache miss rate.
+- Cache latency.
+- AI calls avoided.
+
+Load testing:
+Use k6 or Artillery.
+
+Test scenarios:
+- 10 concurrent users.
+- 25 concurrent users.
+- 50 concurrent users.
+
+Measure:
+- p50 latency.
+- p95 latency.
+- p99 latency.
+- AI latency.
+- Throughput.
+- Error rate.
+- Timeout rate.
+- Retry rate.
+- Cache hit rate.
+- Database latency.
+
+Example report:
+
+50 concurrent interview sessions
+p50: <actual result>
+p95: <actual result>
+p99: <actual result>
+Error rate: <actual result>
+Cache hit rate: <actual result>
+
+IMPORTANT:
+Do not put invented benchmark numbers in the README or resume.
+Only report measurements after actually running the load tests.
+
+Final production checklist:
+- Docker
+- GitHub Actions
+- Environment secrets
+- Logging
+- Rate limiting
+- Per-user AI usage caps (daily/monthly, independent of rate limits)
+- AI provider fallback
+- Evaluation regression gate
+- Redis caching
+- Background job queue (BullMQ) for embedding generation
+- PostgreSQL + pgvector
+- Security controls (resume AND answer prompt-injection defense)
+- Idempotent retries on question generation / answer evaluation
+- Resume data retention and deletion (with cascade to chunks/embeddings)
+- Load-test report
+- Architecture documentation

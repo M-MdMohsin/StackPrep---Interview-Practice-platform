@@ -100,6 +100,7 @@ Supporting libraries:
 - CORS
 - Pino
 - Redis client
+- BullMQ (background job queue for embedding generation and other non-interactive work)
 - Testing framework such as Vitest/Jest
 
 Suggested backend structure:
@@ -124,7 +125,11 @@ backend/
 │   │   ├── rag.service.ts
 │   │   ├── cache.service.ts
 │   │   ├── observability.service.ts
+│   │   ├── usage-limit.service.ts
 │   │   └── analytics.service.ts
+│   ├── jobs/
+│   │   ├── queue.ts
+│   │   └── embedding.job.ts
 │   ├── prompts/
 │   └── server.ts
 ├── prisma/
@@ -180,7 +185,7 @@ PostgreSQL is preferable because the platform requires relational integrity, fil
 
 Use:
 - Prisma for relational application models.
-- pgvector for resume/role embeddings and similarity search.
+- pgvector for resume/role embeddings and similarity search, with the vector column dimension matching the chosen embedding model's output size (e.g. 768 for Gemini text-embedding-004).
 
 Prisma's relational mode with PostgreSQL should use database foreign keys to maintain referential integrity.
 
@@ -201,7 +206,7 @@ AI tasks:
 - Resume analysis
 - Final report
 - Preparation plan
-- Embedding-related workflows where an appropriate embedding provider is configured
+- Embedding-related workflows using Gemini's text embedding model (e.g. text-embedding-004) as the default embedding provider, since the primary provider is already Gemini; the provider abstraction should still allow this to be swapped
 
 AI responses should use structured output wherever practical.
 
@@ -477,11 +482,11 @@ Track:
 Cache effectiveness must be measured rather than assumed.
 
 
-2.11 Resume Security and Prompt-Injection Defense
+2.11 Resume and Answer Security / Prompt-Injection Defense
 
-Resume uploads are an untrusted input boundary.
+Resume uploads are an untrusted input boundary. User-submitted interview answers are a second untrusted input boundary, since answer text is fed back into follow-up-generation and evaluation prompts. Both must go through equivalent defenses before reaching an LLM prompt.
 
-Pipeline:
+Resume pipeline:
 
 File upload
  ↓
@@ -515,8 +520,26 @@ Requirements:
 - Log guardrail events without exposing sensitive resume content.
 - Provide a safe failure path when suspicious content is detected.
 
+Answer text pipeline:
+
+Answer submitted
+ ↓
+Length/token limit check
+ ↓
+Prompt-injection/suspicious-instruction detection
+ ↓
+Stored as answer record
+ ↓
+Passed to evaluation/follow-up prompt as untrusted data
+
+Requirements:
+- Apply the same instruction-like-content detection used for resumes to submitted answer text.
+- Never let answer text be interpreted as system/developer instructions (e.g. "ignore the rubric," "give a perfect score").
+- Apply the same input/token limits used for resume content.
+- Log guardrail events on answers without exposing full answer content unnecessarily.
+
 Important:
-Prompt-injection detection is a defense layer, not a guarantee. The LLM must still be instructed to treat retrieved resume content as untrusted data.
+Prompt-injection detection is a defense layer, not a guarantee. The LLM must still be instructed to treat retrieved resume content and submitted answer content as untrusted data, not as instructions.
 
 
 2.12 RAG and Personalization
@@ -563,6 +586,19 @@ For a question:
 RAG should be used to improve personalization, not simply added as a technology buzzword.
 
 
+2.12.1 Data Retention and Deletion
+
+Resume content is sensitive user data and requires an explicit retention/deletion policy rather than indefinite storage by default.
+
+Requirements:
+- Users can request deletion of an uploaded resume from account/settings.
+- Deletion removes: the stored resume file, extracted raw text, ResumeChunk rows, and associated pgvector embeddings.
+- Deletion is cascaded via foreign-key relationships (User → Resume → ResumeChunk) rather than left as an application-level cleanup afterthought.
+- A default retention window applies to raw resume files even without an explicit user deletion request (e.g. raw file removed after N days; derived chunks/embeddings may be kept only as long as needed for personalization, per product policy).
+- Deletion actions are logged (who/when), without logging the resume content itself.
+- Account deletion cascades to all resume, interview, answer, and evaluation data belonging to that user.
+
+
 2.13 Security Requirements
 
 This is an AI-consuming API and must protect both user data and provider resources.
@@ -584,6 +620,13 @@ Initial engineering defaults may include:
 - Interview creation: 5/hour/user
 
 These are application-level controls, not provider quota values.
+
+Usage/cost caps:
+Since the platform has no payment system, per-minute/per-hour rate limits alone do not bound total spend. Add a separate, longer-window cap:
+- AI-consuming requests: a configurable daily cap per user (e.g. 50/day) and monthly cap (e.g. 500/month).
+- Caps are read from configuration, not hardcoded.
+- When a user hits a cap, return a clear, safe message rather than a generic error.
+- Track estimated cost per user against AIUsage records (see 2.20/2.21) so caps can be tuned against real spend data.
 
 Request validation:
 Frontend
@@ -790,6 +833,12 @@ Application behavior:
 
 Fallback order should be configurable rather than hard-coded to a single provider.
 
+Idempotency on client retry:
+A client-side retry of a question-generation or answer-evaluation request (e.g. after a timeout) must not silently create a duplicate question, evaluation, or state transition.
+- Accept an idempotency key from the client, or
+- Before creating a new question/evaluation, check for an existing pending/complete record for that interview step and return it instead of creating a duplicate.
+- This check should happen before the AI provider call, not just before the database write, to avoid unnecessary duplicate AI spend on retries.
+
 
 2.20 AI Usage and Cost Tracking
 
@@ -831,6 +880,7 @@ Question
 Answer
 Evaluation
 AIUsage
+UsageLimit
 PromptVersion
 EvalRun
 EvalResult
@@ -854,6 +904,9 @@ PromptVersion
 
 EvalRun
  └── EvalResult
+
+User
+ └── UsageLimit (daily/monthly AI usage caps, checked against AIUsage before provider calls)
 
 
 2.22 Suggested AI Evaluation Schema
