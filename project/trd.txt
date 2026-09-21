@@ -1,0 +1,1004 @@
+2. Technical Requirements Document — TRD
+
+2.1 Architecture
+
+Recommended architecture:
+
+                    ┌──────────────────┐
+                    │     Browser      │
+                    │ Next.js + React  │
+                    └────────┬─────────┘
+                             │
+                           HTTPS
+                             │
+                             ▼
+                    ┌──────────────────┐
+                    │   API Backend    │
+                    │ Node + Express   │
+                    └────────┬─────────┘
+                             │
+          ┌──────────────────┼─────────────────────┐
+          │                  │                     │
+          ▼                  ▼                     ▼
+     PostgreSQL          Redis / Upstash       AI Service
+     + Prisma              Cache / Limits          │
+     + pgvector                                  │
+          │                              ┌────────┼────────┐
+          │                              ▼        ▼        ▼
+          │                           Gemini    Groq   OpenRouter
+          │
+          └───────────────┬──────────────────────┐
+                          │                      │
+                          ▼                      ▼
+                    Resume/RAG Layer        Analytics
+                    - Parser                - Metrics
+                    - Chunking              - History
+                    - Embeddings
+                    - Retrieval
+
+Cross-cutting platform layer:
+- Authentication/authorization
+- Rate limiting
+- Request/correlation IDs
+- Structured logging
+- AI usage tracking
+- Guardrails
+- Caching
+- Error handling
+- Testing
+- CI/CD
+- LLM evaluation pipeline
+
+The architecture should keep business logic independent from any single AI provider.
+
+
+2.2 Frontend Stack
+
+Core:
+- Next.js
+- TypeScript
+- React
+
+UI:
+- Tailwind CSS
+- shadcn/ui
+- Lucide icons
+
+Forms:
+- React Hook Form
+- Zod
+
+API state:
+- TanStack Query
+
+Charts:
+- Recharts
+
+Coding editor:
+- Monaco Editor
+
+Requirements:
+- Responsive UI.
+- Protected dashboard routes.
+- Clear interview state transitions.
+- Display evaluation results without exposing provider API keys.
+- Handle loading, retry, timeout, and AI failure states gracefully.
+
+
+2.3 Backend Stack
+
+Core:
+- Node.js
+- TypeScript
+- Express.js
+
+Supporting libraries:
+- Zod
+- Prisma
+- JWT/Auth provider SDK
+- Helmet
+- CORS
+- Pino
+- Redis client
+- Testing framework such as Vitest/Jest
+
+Suggested backend structure:
+
+backend/
+├── src/
+│   ├── config/
+│   ├── controllers/
+│   ├── routes/
+│   ├── middleware/
+│   ├── validators/
+│   ├── services/
+│   │   ├── ai/
+│   │   │   ├── ai.provider.ts
+│   │   │   ├── gemini.provider.ts
+│   │   │   ├── groq.provider.ts
+│   │   │   ├── openrouter.provider.ts
+│   │   │   └── ai.service.ts
+│   │   ├── interview.service.ts
+│   │   ├── resume.service.ts
+│   │   ├── evaluation.service.ts
+│   │   ├── rag.service.ts
+│   │   ├── cache.service.ts
+│   │   ├── observability.service.ts
+│   │   └── analytics.service.ts
+│   ├── prompts/
+│   └── server.ts
+├── prisma/
+│   └── schema.prisma
+├── evals/
+│   ├── datasets/
+│   ├── prompts/
+│   ├── runners/
+│   ├── judges/
+│   ├── metrics/
+│   └── reports/
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── api/
+├── load-tests/
+│   └── interview-flow.js
+├── Dockerfile
+├── package.json
+└── tsconfig.json
+
+
+2.4 Database
+
+Primary database:
+- PostgreSQL
+
+Why:
+The data is highly relational:
+
+User
+ ↓
+Resume
+ ↓
+Interview
+ ↓
+Question
+ ↓
+Answer
+ ↓
+Evaluation
+
+Additional relationships:
+User → UserSkill
+Resume → ResumeChunk
+ResumeChunk → Embedding/vector
+Interview → Question
+Question → Answer
+Answer → Evaluation
+Question → parent Question for adaptive follow-ups
+
+PostgreSQL is preferable because the platform requires relational integrity, filtering, analytics, and transactional workflows.
+
+Use:
+- Prisma for relational application models.
+- pgvector for resume/role embeddings and similarity search.
+
+Prisma's relational mode with PostgreSQL should use database foreign keys to maintain referential integrity.
+
+
+2.5 AI Layer
+
+Primary:
+- Gemini Flash
+
+Potential fallback providers:
+- Groq
+- OpenRouter
+
+AI tasks:
+- Question generation
+- Answer evaluation
+- Follow-up generation
+- Resume analysis
+- Final report
+- Preparation plan
+- Embedding-related workflows where an appropriate embedding provider is configured
+
+AI responses should use structured output wherever practical.
+
+Example evaluation object:
+
+{
+  "score": 7,
+  "accuracy": 8,
+  "clarity": 7,
+  "completeness": 6,
+  "relevance": 8,
+  "communication": 7,
+  "strengths": [],
+  "weaknesses": [],
+  "missingConcepts": [],
+  "feedback": "",
+  "idealAnswer": ""
+}
+
+Structured output only guarantees a response shape; application-level semantic validation is still required.
+
+
+2.6 AI Provider Abstraction
+
+Do not tightly couple the entire backend to Gemini.
+
+Use:
+
+AIService
+   │
+   ├── GeminiProvider
+   ├── GroqProvider
+   └── OpenRouterProvider
+
+Interface:
+
+interface AIProvider {
+  generateQuestion(): Promise<Question>;
+  evaluateAnswer(): Promise<Evaluation>;
+  generateFollowUp(): Promise<Question>;
+  analyzeResume(): Promise<ResumeAnalysis>;
+  generateReport(): Promise<InterviewReport>;
+}
+
+Provider selection should be configurable by task, availability, latency, and failure policy.
+
+Business logic should call AIService rather than provider-specific SDKs.
+
+
+2.7 AI Request Pipeline
+
+For question generation:
+
+POST /interviews/:id/questions/generate
+        ↓
+Authentication
+        ↓
+Object-level authorization
+        ↓
+Rate limit
+        ↓
+Request ID creation/propagation
+        ↓
+Load interview + relevant context
+        ↓
+Retrieve RAG context
+        ↓
+Check semantic/cache layer
+        ↓
+Build versioned prompt
+        ↓
+AI provider
+        ↓
+Structured output
+        ↓
+Schema validation
+        ↓
+Business/semantic validation
+        ↓
+Save question
+        ↓
+Emit structured telemetry
+        ↓
+Return response
+
+For answer evaluation:
+
+POST /questions/:id/answer
+        ↓
+Authentication
+        ↓
+Object-level authorization
+        ↓
+Rate limit
+        ↓
+Save answer
+        ↓
+Retrieve relevant question/resume/role context
+        ↓
+Build versioned evaluation prompt
+        ↓
+AI provider
+        ↓
+Structured evaluation
+        ↓
+Schema validation
+        ↓
+Semantic/business validation
+        ↓
+Save evaluation
+        ↓
+Emit telemetry
+        ↓
+Generate next question if required
+        ↓
+Return evaluation + next question
+
+
+2.8 LLM Evaluation / Evals
+
+Schema validation is not sufficient to prove that an AI evaluator is producing useful feedback.
+
+The project must include an evaluation pipeline.
+
+Golden set:
+- Start with a small manually reviewed dataset.
+- Recommended initial target: approximately 50 representative answers.
+- Cover strong, average, weak, incomplete, incorrect, off-topic, and ambiguous answers.
+- Include multiple roles and difficulty levels where practical.
+- Store expected score ranges and evaluation criteria.
+- Version the dataset.
+
+Example:
+
+{
+  "id": "golden-001",
+  "question": "What is database indexing?",
+  "answer": "...",
+  "expectedScoreRange": [7, 9],
+  "expectedConcepts": [
+    "faster lookup",
+    "index structure",
+    "write/storage tradeoff"
+  ]
+}
+
+Regression runner:
+- Run the current evaluator against the golden set.
+- Compare score ranges and required concepts.
+- Compare feedback quality metrics.
+- Compare against a stored baseline.
+- Flag regressions.
+- Produce a machine-readable and human-readable report.
+
+Prompt/model versioning:
+Every AI evaluation should record:
+- Prompt version
+- Model
+- Provider
+- Evaluation schema version
+- Timestamp
+
+LLM-as-judge:
+- A second, cheaper model can periodically review evaluator outputs.
+- It should judge consistency, relevance, correctness, and usefulness.
+- Judge results should be treated as an additional quality signal, not absolute truth.
+
+CI quality gate:
+Prompt/model changes should run the golden-set evaluation before deployment.
+
+Example policy:
+- No critical regression in required concepts.
+- Score consistency must remain within configured tolerance.
+- LLM-as-judge quality must not fall below the configured threshold.
+
+Thresholds should be defined in configuration and tuned using actual evaluation results.
+
+
+2.9 Observability and Tracing
+
+Every important request must have a request/correlation ID.
+
+Example:
+
+requestId
+  ↓
+API middleware
+  ↓
+Interview service
+  ↓
+RAG retrieval
+  ↓
+Cache lookup
+  ↓
+LLM request
+  ↓
+Validation
+  ↓
+Database write
+
+Structured Pino logs should capture appropriate metadata such as:
+- requestId
+- userId where appropriate and privacy-safe
+- endpoint
+- operation
+- provider
+- model
+- prompt version
+- schema version
+- start/end timestamps
+- total latency
+- LLM latency
+- database latency
+- cache hit/miss
+- retry count
+- status
+- failure category
+- token counts where available
+- guardrail result
+
+Do not log secrets or unnecessarily expose complete resumes, prompts, or sensitive user answers.
+
+The system should make it possible to investigate:
+- Why was an AI request slow?
+- Which provider failed?
+- Was the response served from cache?
+- Did schema/business validation fail?
+- Did the request retry?
+- Did database persistence fail?
+- Did a guardrail trigger?
+
+
+2.10 Caching Strategy
+
+Redis/Upstash should provide the first caching layer.
+
+Caching categories:
+
+1. Question-generation cache
+Useful for reusable role/difficulty/topic requests.
+
+2. Semantic cache
+Use normalized request features and/or embeddings to identify sufficiently similar question-generation requests.
+
+3. Retrieval cache
+Cache repeated resume/role retrieval results where safe.
+
+4. Prompt/provider cache
+Where the selected provider supports prompt caching, use it for large repeated static context when economically beneficial.
+
+Cache key should include relevant version information:
+- Task
+- Role
+- Difficulty
+- Topic/context hash
+- Prompt version
+- Model
+- Provider
+- Schema version
+
+Do not blindly cache:
+- User-specific answer evaluations.
+- Sensitive personalized outputs.
+- Responses whose correctness depends on rapidly changing private state.
+
+Track:
+- Cache hit rate
+- Cache miss rate
+- Cache latency
+- Invalidations
+- Estimated AI calls avoided
+
+Cache effectiveness must be measured rather than assumed.
+
+
+2.11 Resume Security and Prompt-Injection Defense
+
+Resume uploads are an untrusted input boundary.
+
+Pipeline:
+
+File upload
+ ↓
+File type/size validation
+ ↓
+Safe text extraction
+ ↓
+Content normalization
+ ↓
+Prompt-injection/suspicious-instruction detection
+ ↓
+Chunking
+ ↓
+Embedding
+ ↓
+Storage
+ ↓
+RAG retrieval
+ ↓
+LLM prompt
+
+Requirements:
+- Accept only supported document types.
+- Enforce maximum file size.
+- Do not execute uploaded content.
+- Strip or normalize unsupported content where appropriate.
+- Detect instruction-like phrases attempting to control the model.
+- Treat extracted resume text as data, not system instructions.
+- Keep system/developer instructions separate from retrieved resume content.
+- Limit retrieved context size.
+- Log guardrail events without exposing sensitive resume content.
+- Provide a safe failure path when suspicious content is detected.
+
+Important:
+Prompt-injection detection is a defense layer, not a guarantee. The LLM must still be instructed to treat retrieved resume content as untrusted data.
+
+
+2.12 RAG and Personalization
+
+V2 personalization should use retrieval rather than injecting the entire resume into every prompt.
+
+Pipeline:
+
+Resume
+ ↓
+Text extraction
+ ↓
+Chunking
+ ↓
+Embeddings
+ ↓
+PostgreSQL + pgvector
+ ↓
+Similarity retrieval
+ ↓
+Relevant resume context
+ ↓
+Role requirement context
+ ↓
+Question generation
+
+Store metadata for each chunk:
+- resumeId
+- chunkId
+- section
+- text
+- embedding
+- source position
+- createdAt
+
+For a question:
+- Identify role/topic/difficulty.
+- Retrieve the most relevant resume chunks.
+- Optionally retrieve role-requirement chunks.
+- Build a bounded context.
+- Generate the question.
+- Record which context was retrieved for observability and debugging.
+
+RAG should be used to improve personalization, not simply added as a technology buzzword.
+
+
+2.13 Security Requirements
+
+This is an AI-consuming API and must protect both user data and provider resources.
+
+Authentication:
+- Every private API requires authentication.
+
+Authorization:
+Users can only access:
+- Their own resumes.
+- Their own interviews.
+- Their own answers.
+- Their own evaluations.
+- Their own reports.
+
+Rate limiting:
+Initial engineering defaults may include:
+- AI requests: 20/min/user
+- Interview creation: 5/hour/user
+
+These are application-level controls, not provider quota values.
+
+Request validation:
+Frontend
+ ↓
+API
+ ↓
+Zod validation
+ ↓
+Controller
+ ↓
+Service
+
+File validation:
+Resume upload:
+- Allowed: PDF initially.
+- Maximum size: 5 MB.
+- Reject unsupported/executable file types.
+
+API key protection:
+Never:
+NEXT_PUBLIC_GEMINI_API_KEY
+
+Use server-side:
+GEMINI_API_KEY
+
+Additional:
+- Helmet
+- CORS allowlist
+- Secure HTTP headers
+- Secret management through environment/deployment secrets
+- Audit/security logging where appropriate
+
+
+2.14 AI Reliability Requirements
+
+AI output should never be trusted blindly.
+
+Pipeline:
+
+AI provider
+ ↓
+Structured JSON
+ ↓
+Schema validation
+ ↓
+Semantic/business validation
+ ↓
+Guardrail checks
+ ↓
+Database
+ ↓
+User response
+
+Example:
+score = 150
+must be rejected because:
+0 <= score <= 10
+
+Semantic checks may include:
+- Required concepts are present when expected.
+- Score fields remain within range.
+- Feedback is not empty when required.
+- Question belongs to the selected role/topic.
+- Follow-up question is relevant to the previous answer.
+- No system secrets are returned.
+- Output does not contain unsafe provider/tool instructions.
+
+A syntactically valid JSON response can still be semantically incorrect.
+
+
+2.15 Testing Requirements
+
+Unit tests:
+- Score validation.
+- Evaluation business rules.
+- Cache-key generation.
+- Authorization helpers.
+- Prompt-injection detection rules.
+- RAG context limits.
+
+Integration tests:
+- Create interview.
+- Generate question.
+- Submit answer.
+- Evaluate answer.
+- Generate follow-up.
+- Complete interview.
+- Retrieve history.
+
+API/security tests:
+- Unauthorized requests rejected.
+- User A cannot access User B resources.
+- Rate limits enforced.
+- Invalid file uploads rejected.
+- Invalid request bodies rejected.
+
+AI regression tests:
+- Golden-set evaluator tests.
+- Prompt-version comparisons.
+- Structured output validation.
+- LLM-as-judge checks where configured.
+
+The test suite should run automatically in CI.
+
+
+2.16 CI/CD Requirements
+
+Use GitHub Actions.
+
+Pull request pipeline:
+1. Install dependencies.
+2. Lint.
+3. Type-check.
+4. Run unit tests.
+5. Run integration/API tests where environment permits.
+6. Run AI evaluation regression suite.
+7. Generate test/eval reports.
+8. Fail the workflow if configured quality gates fail.
+
+Deployment pipeline:
+- Build application.
+- Run production checks.
+- Deploy only after required CI gates pass.
+
+Prompt/model changes should be treated as changes that can affect application behavior and should therefore trigger the relevant eval suite.
+
+
+2.17 Load and Performance Testing
+
+Use k6 or Artillery.
+
+Measure:
+- API p50 latency.
+- API p95 latency.
+- API p99 latency.
+- AI p50/p95/p99 latency.
+- Throughput.
+- Concurrent interview sessions.
+- Error rate.
+- Timeout rate.
+- Retry rate.
+- Cache hit rate.
+- Database latency.
+
+Suggested benchmark scenarios:
+- 10 concurrent users.
+- 25 concurrent users.
+- 50 concurrent users.
+
+Do not claim benchmark results before actually running the tests.
+
+Example report format:
+
+Scenario:
+50 concurrent interview sessions
+
+Results:
+p50: <measured value>
+p95: <measured value>
+p99: <measured value>
+error rate: <measured value>
+cache hit rate: <measured value>
+
+These measured results can later be used in the README and resume.
+
+
+2.18 Performance and Scalability
+
+Initial targets:
+- Normal non-AI API responses: target <500 ms where practical.
+- AI response latency: target <10 seconds where practical, provider-dependent.
+- Dashboard initial load: target <2 seconds where practical.
+
+These are engineering targets, not guaranteed SLAs.
+
+Scaling approach:
+- Keep backend services stateless where possible.
+- Use Redis for rate limiting and shared cache.
+- Use PostgreSQL connection pooling.
+- Use background jobs for expensive non-interactive processing where appropriate.
+- Add multiple API instances behind a load balancer when required.
+- Monitor AI provider rate limits and application-level quotas.
+
+
+2.19 Error Handling
+
+Common AI errors:
+- Provider timeout.
+- Provider rate limit.
+- Provider quota exhaustion.
+- Invalid structured output.
+- Semantic validation failure.
+- Safety/guardrail rejection.
+- Network failure.
+
+Application behavior:
+1. Log structured error with requestId.
+2. Record provider/model and failure category.
+3. Retry only when safe.
+4. Use fallback provider when configured.
+5. Never retry indefinitely.
+6. Return a safe user-facing message.
+7. Preserve interview state so the user can retry.
+
+Fallback order should be configurable rather than hard-coded to a single provider.
+
+
+2.20 AI Usage and Cost Tracking
+
+Track each AI request where provider APIs expose the required data:
+
+- User ID
+- Provider
+- Model
+- Request type
+- Prompt version
+- Input tokens
+- Output tokens
+- Estimated cost when available
+- Latency
+- Cache hit/miss
+- Retry count
+- Status
+- Failure category
+- CreatedAt
+
+This data supports:
+- Cost monitoring.
+- Provider comparison.
+- Capacity planning.
+- Cache effectiveness.
+- Debugging.
+- User/application usage limits.
+
+
+2.21 Recommended Data Models
+
+Core:
+User
+Resume
+ResumeChunk
+UserSkill
+Interview
+Question
+Answer
+Evaluation
+AIUsage
+PromptVersion
+EvalRun
+EvalResult
+
+Important relationships:
+
+User
+ ├── Resume
+ │     └── ResumeChunk
+ ├── UserSkill
+ └── Interview
+       └── Question
+             └── Answer
+                   └── Evaluation
+
+Question
+ └── parentQuestionId → Question
+
+PromptVersion
+ └── used by AI evaluation/question requests
+
+EvalRun
+ └── EvalResult
+
+
+2.22 Suggested AI Evaluation Schema
+
+{
+  "score": 7.5,
+  "accuracyScore": 8,
+  "clarityScore": 7,
+  "completenessScore": 6,
+  "relevanceScore": 9,
+  "communicationScore": 7,
+  "strengths": [
+    "Correctly explained the core concept"
+  ],
+  "weaknesses": [
+    "Did not discuss edge cases"
+  ],
+  "missingConcepts": [
+    "Database indexing"
+  ],
+  "feedback": "Your answer demonstrates...",
+  "idealAnswer": "A stronger answer would..."
+}
+
+The backend must validate this structure and its semantic constraints before persistence.
+
+
+2.23 Development Roadmap
+
+Phase 1 — Foundation
+- Next.js
+- TypeScript
+- Express
+- PostgreSQL
+- Prisma
+- Authentication
+- Basic UI
+- CI foundation
+
+Phase 2 — Interview Engine
+- Interview creation
+- Question generation
+- Answer submission
+- Evaluation
+- Adaptive follow-ups
+- Results
+
+Phase 3 — Production AI Foundation
+- Provider abstraction
+- Structured outputs
+- Zod validation
+- Rate limiting
+- Redis
+- Usage tracking
+- Request IDs
+- Pino structured logging
+- Error handling
+
+Phase 4 — Resume Personalization
+- Resume upload
+- Secure parsing
+- Prompt-injection defenses
+- Resume analysis
+- Chunking
+- Embeddings
+- pgvector
+- RAG question generation
+
+Phase 5 — Evals
+- Golden dataset
+- Evaluation runner
+- Baseline comparison
+- Prompt versioning
+- LLM-as-judge
+- CI regression gate
+
+Phase 6 — Caching and Performance
+- Question cache
+- Semantic cache
+- Retrieval cache
+- Cache metrics
+- k6/Artillery load testing
+- p50/p95/p99 benchmarks
+
+Phase 7 — Analytics and Advanced Features
+- Skill analytics
+- Interview history
+- Voice interview
+- Coding round
+- Preparation plans
+
+Phase 8 — Deployment and Documentation
+- Docker
+- GitHub Actions
+- Production deployment
+- Architecture diagram
+- API documentation
+- Evaluation report
+- Load-test report
+- Security documentation
+- README with measured engineering results
+
+
+2.24 Final Architecture
+
+Browser
+ ↓
+Next.js + TypeScript
+ ↓
+Node.js + Express
+ ↓
+Auth + Authorization
+ ↓
+Validation + Rate Limit
+ ↓
+Request ID / Observability
+ ↓
+Interview / Resume / Analytics Services
+ ↓
+┌───────────────────────────────────────┐
+│ AI Service                            │
+│                                       │
+│ Gemini ─ Groq ─ OpenRouter            │
+│                                       │
+│ Prompt Versioning                     │
+│ Structured Output                     │
+│ Semantic Validation                   │
+│ Guardrails                            │
+│ Evaluation Pipeline                   │
+└───────────────────────────────────────┘
+ ↓
+Redis / Upstash
+ ↓
+PostgreSQL + Prisma + pgvector
+ ↓
+Analytics / AI Usage / Eval Results
+
+Supporting engineering systems:
+- Golden-set evaluation pipeline
+- LLM-as-judge
+- Structured tracing/logging
+- Semantic and prompt caching
+- Prompt-injection defenses
+- Automated tests
+- GitHub Actions CI/CD
+- k6/Artillery load testing
+
+The final system should demonstrate not only that an LLM can generate interview content, but that the application can measure, secure, observe, test, cache, and continuously improve its LLM behavior.

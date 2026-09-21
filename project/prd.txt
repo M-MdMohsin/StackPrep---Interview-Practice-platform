@@ -3,7 +3,8 @@
     Working name: StackPrep
 
 1.2 Product Overview
-IntervAI is a web-based AI interview practice platform that allows users to simulate realistic technical and behavioral interviews.
+StackPrep is a web-based AI interview practice platform that allows users to simulate realistic technical and behavioral interviews.
+
 Users can:
 - Select a target job role.
 - Select interview type and difficulty.
@@ -12,36 +13,54 @@ Users can:
 - Submit text or voice answers.
 - Receive AI-based evaluation.
 - Get adaptive follow-up questions.
-- View their interview performance.
+- View interview performance.
 - Track improvement over multiple interviews.
-- Receive personalized recommendations.
-The core differentiator is:
-The interview adapts to the candidate's resume, selected role, and previous answers rather than presenting a fixed list of questions.
+- Receive personalized recommendations and preparation plans.
 
-.3 Problem Statement
+The core differentiator is:
+The interview adapts to the candidate's resume, selected role, previous answers, and identified skill gaps rather than presenting a fixed list of questions.
+
+The platform is also designed as a production-oriented LLM application with:
+- An LLM evaluation and regression pipeline.
+- Observability and request tracing.
+- AI response and prompt caching.
+- Resume prompt-injection defenses.
+- Retrieval-augmented personalization using embeddings.
+- Automated testing and CI/CD quality gates.
+- Load and latency benchmarking.
+
+
+1.3 Problem Statement
 Many candidates practice interviews using:
 - Static question lists
 - YouTube videos
 - Generic chatbots
 - Fixed mock-test platforms
-These approaches don't provide a realistic adaptive interview experience.
+
+These approaches do not provide a realistic adaptive interview experience and generally do not give measurable, trustworthy feedback.
+
 For example:
+
 A candidate says:
 "I used Redis for caching."
 
 A static platform moves to Question 5.
-IntervAI instead asks:
+
+StackPrep instead asks:
 "You mentioned Redis. What data did you cache and how did you decide what should be cached?"
+
+The platform should also be able to identify whether its own AI evaluation quality has regressed after a prompt or model change. This requires an evaluation pipeline rather than relying only on JSON/schema validation.
 
 
 1.4 Target Users
-Primary users
+Primary users:
 - College students
 - Fresh graduates
 - Junior developers
 - Software engineers preparing for job changes
 - Candidates preparing for technical interviews
-Initial target roles
+
+Initial target roles:
 - Frontend Developer
 - Backend Developer
 - Full Stack Developer
@@ -49,9 +68,11 @@ Initial target roles
 - Data Analyst
 - QA Engineer
 
-few more roles will come in future
+More roles will be added in future.
+
 
 1.5 Product Goals
+
 Goal 1 — Personalized interviews
 Questions should be generated based on:
 Job Role
@@ -62,10 +83,13 @@ Skills
 +
 Resume
 +
+Relevant resume/role context retrieved through RAG
++
 Previous Answers
 
 Goal 2 — Adaptive interviews
-The AI should change subsequent questions based on the candidate's previous responses.
+The AI should change subsequent questions based on the candidate's previous responses and identified weaknesses.
+
 Goal 3 — Useful evaluation
 The platform should provide more than:
 "Good answer."
@@ -77,14 +101,70 @@ It should evaluate:
 - Relevance
 - Communication
 - Missing concepts
-Goal 4 — Long-term improvement
+- Strengths
+- Weaknesses
+- Suggested improvement
+- Ideal answer or answer outline
+
+Goal 4 — Evaluation quality
+The platform should evaluate the quality of its own LLM evaluator.
+
+It should maintain:
+- A versioned golden set of representative interview answers.
+- Expected score ranges and feedback criteria.
+- Automated regression checks when prompts/models change.
+- Periodic LLM-as-judge checks for evaluator consistency.
+- Evaluation reports that can be reviewed before production changes.
+
+Goal 5 — Observable AI behavior
+Every important AI request should be traceable using a request/correlation ID.
+
+The platform should capture:
+- End-to-end request latency.
+- LLM provider/model.
+- LLM latency.
+- Token usage when available.
+- Retries and failures.
+- Cache hit/miss.
+- Validation failures.
+- Database operation timing.
+- Safety/guardrail outcomes.
+
+Raw prompts and responses should not be treated as the only observability mechanism.
+
+Goal 6 — Efficient AI usage
+The platform should reduce unnecessary model calls through:
+- Redis-based response caching where appropriate.
+- Semantic caching for reusable question-generation requests.
+- Provider/model-aware cache keys.
+- Prompt/model versioning in cache keys.
+- Optional provider-native prompt caching when supported.
+
+User-specific answer evaluations should not be blindly reused across users.
+
+Goal 7 — Secure resume personalization
+Resume content must be treated as untrusted input.
+
+Before resume content reaches an LLM prompt, the system should:
+- Validate file type and size.
+- Extract text safely.
+- Detect suspicious instruction-like content.
+- Separate resume data from system instructions.
+- Apply input/token limits.
+- Log security/guardrail events without unnecessarily storing sensitive resume content.
+
+Goal 8 — Long-term improvement
 Users should be able to compare:
 Interview 1 → 62%
 Interview 2 → 68%
 Interview 3 → 74%
 Interview 4 → 81%
 
+The platform should identify recurring weak topics and generate targeted preparation plans.
+
+
 1.6 Core User Journey
+
                     START
                       │
                       ▼
@@ -101,15 +181,20 @@ Interview 4 → 81%
      Upload Resume          Start Interview
           │                       │
           ▼                       ▼
-     Resume Parsing         Select Role
+     File Validation         Select Role
           │                       │
           ▼                       ▼
-     Skill Extraction       Select Difficulty
+     Resume Parsing         Select Difficulty
+          │                       │
+          ▼                       ▼
+ Security / Injection        Interview Setup
+     Detection                    │
+          │                       │
+          ▼                       ▼
+ Resume Analysis +         Retrieve relevant
+ Embeddings/RAG            resume/role context
           │                       │
           └───────────┬───────────┘
-                      ▼
-              Interview Setup
-                      │
                       ▼
                AI Question
                       │
@@ -118,6 +203,9 @@ Interview 4 → 81%
                       │
                       ▼
                 AI Evaluation
+                      │
+                      ▼
+          Schema + Business Validation
                       │
                       ▼
              Adaptive Follow-up
@@ -141,13 +229,18 @@ Interview 4 → 81%
                       ▼
                  Dashboard
 
+Observability/tracing and usage metrics should run across the request path.
+
+
 1.7 MVP Features
-The first version should contain only these features.
+The first production-oriented version should contain:
+
 Authentication
 - Signup
 - Login
 - Logout
 - Protected dashboard
+
 Interview setup
 User chooses:
 - Role
@@ -155,38 +248,64 @@ User chooses:
 - Interview type
 - Difficulty
 - Number of questions
+
 AI interview
 - AI-generated questions
 - Answer submission
 - AI evaluation
 - Next question
+- Adaptive follow-up logic
+
 Results
 - Overall score
 - Question-wise score
 - Feedback
 - Strengths
 - Weaknesses
+- Missing concepts
+
 History
 - Previous interviews
 - Scores
 - Date
 - Role
 
+Production AI foundations
+- Server-side AI key protection
+- Per-user rate limiting
+- Structured AI outputs
+- Schema and business validation
+- Request/correlation IDs
+- Structured logging
+- AI usage tracking
+- Basic Redis caching
+- Unit and integration test foundation
+
+
 1.8 Version 2 Features
-After MVP:
+
 Resume analysis
 Resume
  ↓
-Parser
+Secure File Validation
  ↓
-AI
+Text Parser
+ ↓
+Prompt-Injection Detection
+ ↓
+AI Analysis
  ↓
 Skills
  ↓
 Projects
  ↓
 Experience
-Questions become personalized.
+ ↓
+Chunking + Embeddings
+ ↓
+PostgreSQL + pgvector
+
+Questions become personalized using retrieved resume and role context.
 
 Adaptive questions
 Answer
@@ -195,14 +314,69 @@ AI analysis
  ↓
 Identify weakness
  ↓
+Retrieve relevant context
+ ↓
 Follow-up question
+
 Performance analytics
 - Score history
 - Skill-wise performance
 - Weak topics
 - Improvement percentage
+- Question difficulty history
+- Interview completion trends
+
+Caching
+- Semantic question-generation cache
+- Redis cache hit/miss metrics
+- Versioned cache keys
+- Safe invalidation strategy
+
 
 1.9 Version 3 Features
+
+LLM Evaluation / Evals
+- Golden set of representative sample answers.
+- Expected score ranges and feedback criteria.
+- Automated evaluator regression runner.
+- Prompt/model version comparison.
+- LLM-as-judge for periodic quality checks.
+- Regression thresholds that can block deployment.
+- Evaluation reports stored as build artifacts.
+
+Observability
+- Request/correlation IDs.
+- Structured Pino logs.
+- AI latency.
+- API latency.
+- Database latency.
+- Token usage.
+- Retry count.
+- Provider/model.
+- Cache hit/miss.
+- Validation and guardrail outcomes.
+- Failure classification.
+
+Testing and CI/CD
+- Unit tests for score/business validation.
+- Integration tests for interview flow.
+- AI evaluation regression tests.
+- API authorization tests.
+- Type checking.
+- GitHub Actions on pull requests.
+- Evals as a deployment quality gate.
+
+Load and performance testing
+- k6 or Artillery load tests.
+- p50/p95/p99 latency.
+- Concurrent interview sessions.
+- Throughput.
+- Error rate.
+- Cache hit rate.
+- AI provider latency.
+
+Measured benchmark results should be reported only after actual tests are executed.
+
 Voice interviews
 Microphone
  ↓
@@ -211,14 +385,17 @@ Speech-to-text
 Transcript
  ↓
 AI evaluation
+
 Coding round
 - Coding problems
 - Monaco editor
 - Test cases
 - Code execution
 - AI code review
+
 AI preparation plan
 After an interview:
+
 Weak:
 System Design
 Database Indexing
@@ -238,15 +415,50 @@ Don't build these initially:
 - Recruitment management system
 - Social network
 - Payment system
+
 These can distract from the core product.
 
-1.11 Success Metrics
-For a real product:
-Interview completion rate
-Average interviews/user
-Average answer evaluation latency
-AI failure rate
-Daily active users
-Interview repeat rate
-Average user score improvement
 
+1.11 Success Metrics
+
+Product metrics:
+- Interview completion rate
+- Average interviews/user
+- Daily active users
+- Interview repeat rate
+- Average user score improvement
+
+AI quality metrics:
+- Golden-set regression pass rate
+- Evaluation score consistency
+- LLM-as-judge agreement/quality score
+- Structured-output validation failure rate
+- AI failure rate
+
+Performance metrics:
+- Average answer evaluation latency
+- p50/p95/p99 API latency
+- p50/p95/p99 AI latency
+- Cache hit rate
+- Requests handled during load testing
+- Error rate
+- Retry rate
+
+Security metrics:
+- Prompt-injection detection events
+- Blocked invalid file uploads
+- Unauthorized resource access attempts
+- Rate-limit violations
+
+
+1.12 Product Quality Principles
+
+1. AI output is not automatically trusted.
+2. Resume content is untrusted user input.
+3. Schema validation is necessary but not sufficient for AI quality.
+4. Prompt/model changes should be evaluated against a golden set.
+5. AI requests should be observable end-to-end.
+6. Caching must respect personalization and privacy boundaries.
+7. Performance claims must be based on measured benchmarks.
+8. Every private resource must have object-level authorization.
+⋮⋮⋮⋮
