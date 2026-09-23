@@ -19,3 +19,31 @@ created frontend using nextjs
         -Simply deploy with React components.
         -Native SVG support, lightweight with minimal dependencies.
         -Declarative components.
+
+created backend installed dependencies
+    1> express: it is a open source web library for nodejs which help to create rest apis and offers inbuild middlewares
+
+    2> ts-node-dev: It restarts target node process when any of required files changes (as standard node-dev) but shares Typescript compilation process between restarts. 
+    This significantly increases speed of restarting comparing to node-dev -r ts-node/register ...,
+     nodemon -x ts-node ... variations because there is no need to instantiate ts-node compilation each time.
+
+    3> prisma: Prisma is an open-source Object-Relational Mapper (ORM) that acts as a translator between a Node.js/TypeScript application
+     and a database. Instead of writing raw SQL queries or complex database commands, 
+     developers use Prisma to interact with their data using clean, auto-generated JavaScript or TypeScript methods
+
+    4> pino : pino is a very low-overhead, structured JSON logging library for Node.js applications. 
+    It is widely used in the JavaScript ecosystem because it is designed to be significantly faster than older alternatives
+     like Winston or Bunyan, often boasting a speed advantage of over 5x
+
+    5> cors: The cors npm package is a Node.js middleware designed for Express (and Connect) applications that simplifies 
+    the process of enabling Cross-Origin Resource Sharing (CORS). 
+    It automatically sets the necessary HTTP response headers (like Access-Control-Allow-Origin) that instruct web browsers to allow a frontend application running on one domain (e.g., http://localhost:3000)
+    to safely request and read resources from a backend server running on a different domain (e.g., http://example.com)
+
+    6> helmet :  is a popular open-source middleware package for Node.js, 
+    (primarily used with Express) that helps secure your web applications by automatically setting various HTTP response headers.
+
+    7> bullMQ: BullMQ is a fast, robust, and Redis-based message and job queue library designed for Node.js 
+    and other environments like Python, Rust, and Elixir. It is the modern successor to the popular older library called Bull.
+
+    8> ioredis: ioredis is a robust, high-performance, and feature-rich Redis client for Node.js and JavaScript.
