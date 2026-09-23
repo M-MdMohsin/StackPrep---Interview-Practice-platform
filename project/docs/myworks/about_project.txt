@@ -1,0 +1,21 @@
+created frontend using nextjs
+    1> installed shadcnui - framework:nextjs, preset: nova, component library: Base UI
+        shadcn/ui is a set of beautifully-designed, accessible components and a code distribution platform.
+        Works with your favorite frameworks and AI models. Open Source. Open Code.
+
+    2> installed react-hook-form :Performant, flexible and extensible forms with easy-to-use validation.
+
+    3> installed zod 
+        Zod is a TypeScript-first validation library.
+        Define a schema and parse some data with it. You'll get back a strongly typed, validated result.
+
+    4> installed tanstack/react-query
+        TanStack Query (formerly known as React Query) is often described as the missing data-fetching library for web applications,
+        but in more technical terms,
+        it makes fetching, caching, synchronizing and updating server state in your web applications a breeze.
+
+    5> installed recharts
+        The main purpose of this library is to help you to write charts in React applications without any pain. Main principles of Recharts are:
+        -Simply deploy with React components.
+        -Native SVG support, lightweight with minimal dependencies.
+        -Declarative components.
