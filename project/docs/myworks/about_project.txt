@@ -47,3 +47,17 @@ created backend installed dependencies
     and other environments like Python, Rust, and Elixir. It is the modern successor to the popular older library called Bull.
 
     8> ioredis: ioredis is a robust, high-performance, and feature-rich Redis client for Node.js and JavaScript.
+
+
+Monorepo Structure:
+    directory layout: frontend/, backend/, docs/, and evals/.
+    added project/backend/tsconfig.jsonand configured npm run dev, npm run build, and npm run start scripts in 
+    project/backend/package.json
+
+
+Environment & Docker Config:
+    Created project/backend/.env.example
+    containing: DATABASE_URL, REDIS_URL, GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, JWT_SECRET, PORT
+    Created project/backend/Dockerfile
+    stub.
+    Configured .gitignore files to ignore node_modules, .env, dist, .next.
