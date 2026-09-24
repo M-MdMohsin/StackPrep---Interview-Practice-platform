@@ -61,3 +61,39 @@ Environment & Docker Config:
     Created project/backend/Dockerfile
     stub.
     Configured .gitignore files to ignore node_modules, .env, dist, .next.
+
+PostgreSQL Database:
+    Connected to the local PostgreSQL instance on port 5432 and ensured the stackprep database is active and reachable.\
+
+Prisma Schema Configuration (
+schema.prisma
+):
+
+Defined all required models:
+    User
+    Resume
+    Interview
+    Question
+    Answer
+    Evaluation
+    UsageLimit
+    AIUsage
+    PromptVersion
+    EvalRun
+    EvalResult
+    Configured all relational foreign keys and cascade deletions (onDelete: Cascade on User → Resume, User → Interview, Interview → Question, Question → Answer, Answer → Evaluation, EvalRun → EvalResult, etc.).
+    Added indexes on Interview.userId, Question.interviewId, Answer.questionId, AIUsage.userId, and AIUsage.createdAt.
+
+Prisma Migrations & Client Generation:
+    Applied the initial migration 20260924160124_init cleanly to PostgreSQL via npx prisma migrate dev --name init.
+    Generated the Prisma Client (@prisma/client).
+    Verified that all 11 tables exist in the stackprep database.
+
+Singleton Prisma Client (prisma.ts):
+    Implemented the singleton Prisma Client instance with environment-aware logging.
+    Verified database connectivity and queries through the singleton client.
+
+Tracking & Git:
+    Updated the checklist in 
+    nextsteps.md
+    Committed the changes with Git.
