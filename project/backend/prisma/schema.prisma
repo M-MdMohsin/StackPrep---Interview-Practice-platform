@@ -1,0 +1,203 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String
+  name         String?
+  role         String?      @default("USER")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  resumes      Resume[]
+  interviews   Interview[]
+  usageLimit   UsageLimit?
+  aiUsages     AIUsage[]
+}
+
+model Resume {
+  id         String      @id @default(uuid())
+  userId     String
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fileName   String
+  fileUrl    String?
+  fileSize   Int?
+  rawText    String?     @db.Text
+  parsedData Json?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  interviews Interview[]
+}
+
+model Interview {
+  id              String     @id @default(uuid())
+  userId          String
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resumeId        String?
+  resume          Resume?    @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  role            String
+  experienceLevel String
+  interviewType   String
+  difficulty      String
+  questionLimit   Int        @default(5)
+  status          String     @default("IN_PROGRESS")
+  overallScore    Float?
+  summaryFeedback String?    @db.Text
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  questions       Question[]
+
+  @@index([userId])
+}
+
+model Question {
+  id               String     @id @default(uuid())
+  interviewId      String
+  interview        Interview  @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  parentQuestionId String?
+  parentQuestion   Question?  @relation("QuestionFollowUps", fields: [parentQuestionId], references: [id], onDelete: SetNull)
+  followUps        Question[] @relation("QuestionFollowUps")
+  questionText     String     @db.Text
+  role             String?
+  topic            String?
+  difficulty       String?
+  orderIndex       Int        @default(0)
+  status           String     @default("PENDING")
+  contextRetrieved Json?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  answers          Answer[]
+
+  @@index([interviewId])
+}
+
+model Answer {
+  id         String       @id @default(uuid())
+  questionId String
+  question   Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answerText String       @db.Text
+  audioUrl   String?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  evaluation Evaluation?
+
+  @@index([questionId])
+}
+
+model Evaluation {
+  id                 String         @id @default(uuid())
+  answerId           String         @unique
+  answer             Answer         @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  promptVersionId    String?
+  promptVersion      PromptVersion? @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
+  score              Float
+  accuracyScore      Float?
+  clarityScore       Float?
+  completenessScore  Float?
+  relevanceScore     Float?
+  communicationScore Float?
+  strengths          Json
+  weaknesses         Json
+  missingConcepts    Json
+  feedback           String         @db.Text
+  idealAnswer        String?        @db.Text
+  rawEvaluation      Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+}
+
+model UsageLimit {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyRequestCap    Int      @default(50)
+  monthlyRequestCap  Int      @default(500)
+  dailyCostCap       Float    @default(5.0)
+  monthlyCostCap     Float    @default(50.0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model AIUsage {
+  id              String         @id @default(uuid())
+  userId          String?
+  user            User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  provider        String
+  model           String
+  requestType     String
+  promptVersionId String?
+  promptVersion   PromptVersion? @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
+  inputTokens     Int?           @default(0)
+  outputTokens    Int?           @default(0)
+  totalTokens     Int?           @default(0)
+  estimatedCost   Float?         @default(0.0)
+  latencyMs       Int?           @default(0)
+  cacheHit        Boolean        @default(false)
+  retryCount      Int            @default(0)
+  status          String
+  failureCategory String?
+  createdAt       DateTime       @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PromptVersion {
+  id            String       @id @default(uuid())
+  task          String
+  versionLabel  String
+  model         String
+  provider      String
+  template      String       @db.Text
+  schemaVersion String?      @default("1.0")
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  evaluations   Evaluation[]
+  aiUsages      AIUsage[]
+  evalRuns      EvalRun[]
+
+  @@unique([task, versionLabel])
+}
+
+model EvalRun {
+  id                String         @id @default(uuid())
+  triggeredBy       String
+  promptVersionId   String?
+  promptVersion     PromptVersion? @relation(fields: [promptVersionId], references: [id], onDelete: SetNull)
+  datasetVersion    String
+  startedAt         DateTime       @default(now())
+  completedAt       DateTime?
+  passFail          String?
+  summaryMetrics    Json?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  results           EvalResult[]
+}
+
+model EvalResult {
+  id                 String   @id @default(uuid())
+  evalRunId          String
+  evalRun            EvalRun  @relation(fields: [evalRunId], references: [id], onDelete: Cascade)
+  goldenSetItemId    String
+  actualScore        Float?
+  expectedScoreRange Json?
+  conceptsMatched    Json?
+  judgeScore         Float?
+  passFail           String
+  details            Json?
+  createdAt          DateTime @default(now())
+}

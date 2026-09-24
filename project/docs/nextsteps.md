@@ -20,13 +20,13 @@ Concrete, actionable tasks for every step (2–17). Check items off as you go. E
 - **Done when:** frontend and backend both run locally; `/api/health` returns 200.
 
 ### Step 3 — Database
-- [ ] Provision Postgres (local Docker Compose for dev, or Neon/Supabase/Railway)
-- [ ] Enable the `pgvector` extension on the database
-- [ ] Write `prisma/schema.prisma` with all 10 models: `User, Resume, Interview, Question, Answer, Evaluation, UsageLimit, AIUsage, PromptVersion, EvalRun, EvalResult`
-- [ ] Set foreign keys + `onDelete: Cascade` where specified (User→Resume, Resume→ResumeChunk once it exists in Step 11, EvalRun→EvalResult)
-- [ ] Add indexes: `Interview.userId`, `Question.interviewId`, `Answer.questionId`, `AIUsage.userId`, `AIUsage.createdAt`
-- [ ] `npx prisma migrate dev --name init`
-- [ ] Create `backend/src/config/prisma.ts` — singleton Prisma client
+- [x] Provision Postgres (local Docker Compose for dev, or Neon/Supabase/Railway)
+- [x] Enable the `pgvector` extension on the database
+- [x] Write `prisma/schema.prisma` with all 10 models: `User, Resume, Interview, Question, Answer, Evaluation, UsageLimit, AIUsage, PromptVersion, EvalRun, EvalResult`
+- [x] Set foreign keys + `onDelete: Cascade` where specified (User→Resume, Resume→ResumeChunk once it exists in Step 11, EvalRun→EvalResult)
+- [x] Add indexes: `Interview.userId`, `Question.interviewId`, `Answer.questionId`, `AIUsage.userId`, `AIUsage.createdAt`
+- [x] `npx prisma migrate dev --name init`
+- [x] Create `backend/src/config/prisma.ts` — singleton Prisma client
 - **Done when:** migration applies cleanly; `npx prisma studio` shows all 10 tables.
 
 ### Step 4 — Auth
