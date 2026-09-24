@@ -7,16 +7,16 @@ Concrete, actionable tasks for every step (2–17). Check items off as you go. E
 ## PHASE 1 — FOUNDATION
 
 ### Step 2 — Project setup
-- [ ] Create monorepo: `frontend/`, `backend/`, `docs/`, `evals/`
-- [ ] `npx create-next-app@latest frontend --typescript --tailwind --app`
-- [ ] Frontend: install `shadcn/ui`, `react-hook-form`, `zod`, `@tanstack/react-query`, `recharts`
-- [ ] Backend: `npm init -y`, install `express typescript ts-node-dev zod prisma @prisma/client pino helmet cors bullmq ioredis`
-- [ ] Create backend folders: `src/{config,controllers,routes,middleware,services,validators,prompts,jobs}`
-- [ ] Add `backend/Dockerfile` (stub is fine for now — multi-stage build gets finalized in Step 17)
-- [ ] Create `.env.example` with: `DATABASE_URL, REDIS_URL, GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, JWT_SECRET, PORT`
-- [ ] `.gitignore`: `node_modules`, `.env`, `dist`, `.next`
-- [ ] Add `GET /api/health` route returning `{status: "ok"}`
-- [ ] `git init`, first commit
+- [x] Create monorepo: `frontend/`, `backend/`, `docs/`, `evals/`
+- [x] `npx create-next-app@latest frontend --typescript --tailwind --app`
+- [x] Frontend: install `shadcn/ui`, `react-hook-form`, `zod`, `@tanstack/react-query`, `recharts`
+- [x] Backend: `npm init -y`, install `express typescript ts-node-dev zod prisma @prisma/client pino helmet cors bullmq ioredis`
+- [x] Create backend folders: `src/{config,controllers,routes,middleware,services,validators,prompts,jobs}`
+- [x] Add `backend/Dockerfile` (stub is fine for now — multi-stage build gets finalized in Step 17)
+- [x] Create `.env.example` with: `DATABASE_URL, REDIS_URL, GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, JWT_SECRET, PORT`
+- [x] `.gitignore`: `node_modules`, `.env`, `dist`, `.next`
+- [x] Add `GET /api/health` route returning `{status: "ok"}`
+- [x] `git init`, first commit
 - **Done when:** frontend and backend both run locally; `/api/health` returns 200.
 
 ### Step 3 — Database
