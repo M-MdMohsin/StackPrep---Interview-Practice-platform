@@ -30,14 +30,14 @@ Concrete, actionable tasks for every step (2–17). Check items off as you go. E
 - **Done when:** migration applies cleanly; `npx prisma studio` shows all 10 tables.
 
 ### Step 4 — Auth
-- [ ] Decide: custom JWT vs. a provider (Clerk/Auth.js/Supabase Auth) — pick one, don't build both
-- [ ] Signup: hash password (`bcrypt` or `argon2`), create `User`
-- [ ] Login: verify password, issue access + refresh JWT (or session cookie if using a provider)
-- [ ] Logout: clear cookie / revoke refresh token
-- [ ] `src/middleware/auth.middleware.ts` — verifies token, attaches `req.user`
-- [ ] `GET /api/me` — current-user endpoint
-- [ ] `src/services/authorization.service.ts` — `assertOwnsResource(userId, resourceUserId)` helper used everywhere ownership matters
-- [ ] Frontend: route guard/redirect for unauthenticated users hitting `/dashboard`
+- [x] Decide: custom JWT vs. a provider (Clerk/Auth.js/Supabase Auth) — pick one, don't build both
+- [x] Signup: hash password (`bcrypt` or `argon2`), create `User`
+- [x] Login: verify password, issue access + refresh JWT (or session cookie if using a provider)
+- [x] Logout: clear cookie / revoke refresh token
+- [x] `src/middleware/auth.middleware.ts` — verifies token, attaches `req.user`
+- [x] `GET /api/me` — current-user endpoint
+- [x] `src/services/authorization.service.ts` — `assertOwnsResource(userId, resourceUserId)` helper used everywhere ownership matters
+- [x] Frontend: route guard/redirect for unauthenticated users hitting `/dashboard`
 - **Done when:** hitting a protected route with no token → 401; hitting another user's resource with a valid token → 403.
 
 ### Step 5 — Interview setup

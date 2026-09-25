@@ -1,4 +1,4 @@
-created frontend using nextjs
+step-2 created frontend using nextjs
     1> installed shadcnui - framework:nextjs, preset: nova, component library: Base UI
         shadcn/ui is a set of beautifully-designed, accessible components and a code distribution platform.
         Works with your favorite frameworks and AI models. Open Source. Open Code.
@@ -49,51 +49,93 @@ created backend installed dependencies
     8> ioredis: ioredis is a robust, high-performance, and feature-rich Redis client for Node.js and JavaScript.
 
 
-Monorepo Structure:
+step-3 Monorepo Structure:
     directory layout: frontend/, backend/, docs/, and evals/.
     added project/backend/tsconfig.jsonand configured npm run dev, npm run build, and npm run start scripts in 
     project/backend/package.json
 
 
-Environment & Docker Config:
-    Created project/backend/.env.example
-    containing: DATABASE_URL, REDIS_URL, GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, JWT_SECRET, PORT
-    Created project/backend/Dockerfile
-    stub.
-    Configured .gitignore files to ignore node_modules, .env, dist, .next.
+    Environment & Docker Config:
+        Created project/backend/.env.example
+        containing: DATABASE_URL, REDIS_URL, GEMINI_API_KEY, GROQ_API_KEY, OPENROUTER_API_KEY, JWT_SECRET, PORT
+        Created project/backend/Dockerfile
+        stub.
+        Configured .gitignore files to ignore node_modules, .env, dist, .next.
 
-PostgreSQL Database:
-    Connected to the local PostgreSQL instance on port 5432 and ensured the stackprep database is active and reachable.\
+    PostgreSQL Database:
+        Connected to the local PostgreSQL instance on port 5432 and ensured the stackprep database is active and reachable.\
 
-Prisma Schema Configuration (
-schema.prisma
-):
+    Prisma Schema Configuration (
+    schema.prisma
+    ):
 
-Defined all required models:
-    User
-    Resume
-    Interview
-    Question
-    Answer
-    Evaluation
-    UsageLimit
-    AIUsage
-    PromptVersion
-    EvalRun
-    EvalResult
-    Configured all relational foreign keys and cascade deletions (onDelete: Cascade on User → Resume, User → Interview, Interview → Question, Question → Answer, Answer → Evaluation, EvalRun → EvalResult, etc.).
-    Added indexes on Interview.userId, Question.interviewId, Answer.questionId, AIUsage.userId, and AIUsage.createdAt.
+    Defined all required models:
+        User
+        Resume
+        Interview
+        Question
+        Answer
+        Evaluation
+        UsageLimit
+        AIUsage
+        PromptVersion
+        EvalRun
+        EvalResult
+        Configured all relational foreign keys and cascade deletions (onDelete: Cascade on User → Resume, User → Interview, Interview → Question, Question → Answer, Answer → Evaluation, EvalRun → EvalResult, etc.).
+        Added indexes on Interview.userId, Question.interviewId, Answer.questionId, AIUsage.userId, and AIUsage.createdAt.
 
-Prisma Migrations & Client Generation:
-    Applied the initial migration 20260924160124_init cleanly to PostgreSQL via npx prisma migrate dev --name init.
-    Generated the Prisma Client (@prisma/client).
-    Verified that all 11 tables exist in the stackprep database.
+    Prisma Migrations & Client Generation:
+        Applied the initial migration 20260924160124_init cleanly to PostgreSQL via npx prisma migrate dev --name init.
+        Generated the Prisma Client (@prisma/client).
+        Verified that all 11 tables exist in the stackprep database.
 
-Singleton Prisma Client (prisma.ts):
-    Implemented the singleton Prisma Client instance with environment-aware logging.
-    Verified database connectivity and queries through the singleton client.
+    Singleton Prisma Client (prisma.ts):
+        Implemented the singleton Prisma Client instance with environment-aware logging.
+        Verified database connectivity and queries through the singleton client.
 
-Tracking & Git:
-    Updated the checklist in 
-    nextsteps.md
-    Committed the changes with Git.
+    Tracking & Git:
+        Updated the checklist in 
+        nextsteps.md
+        Committed the changes with Git.
+
+
+step-4 Authentication Service & Cryptography:
+    Password Hashing: Implemented password hashing and validation with bcrypt (10 salt rounds) in 
+    auth.service.ts
+    
+    Token Generation: Configured short-lived Access Tokens (1h) and Refresh Tokens (7d) with jsonwebtoken.
+    Validation: Added Zod schemas for input validation in 
+    auth.validator.ts
+    
+    User Provisioning: signup creates the User and provisions initial UsageLimit records.
+
+    Authentication Middleware & Controller:
+        Middleware (auth.middleware.ts): Verifies access tokens from either the Authorization: Bearer <token> header or accessToken cookie and attaches req.user. 
+            Returns 401 Unauthorized on invalid or missing tokens.
+        Controller (auth.controller.ts): Implemented handlers for signup, login, logout (clearing HTTP-only cookies), and getMe.
+
+    Endpoints & Routing:
+        POST /api/auth/signup — Registers user, hashes password, sets auth cookies, and returns JWT tokens.
+        POST /api/auth/login — Verifies password hash, sets auth cookies, and returns JWT tokens.
+        POST /api/auth/logout — Clears authentication cookies.
+        GET /api/me & GET /api/auth/me — Protected current-user endpoint.
+
+    Object-Level Authorization Helper:
+        Implemented assertOwnsResource(userId, resourceUserId) in 
+        authorization.service.ts
+        Throws a ForbiddenError (403 Forbidden) whenever a user attempts to access or mutate a resource owned by another user.
+
+    Frontend Route Guard:
+        Configured Next.js Route Protection in 
+        middleware.ts
+        to guard /dashboard and /interview routes against unauthenticated access.
+        Added placeholder pages for /dashboard, /login, and /signup.
+
+    Automated Verification:
+        Executed full integration test (step4-auth.test.ts):
+            Protected route without token returns 401 Unauthorized
+            User signup and login return valid JWTs
+            GET /api/me returns authentic user profile
+            Cross-user access check via assertOwnsResource returns 403 Forbidden
+            logout succeeds and clears cookies
+            Both backend and frontend builds pass TypeScript checks cleanly.
