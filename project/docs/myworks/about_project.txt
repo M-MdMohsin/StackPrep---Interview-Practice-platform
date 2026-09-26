@@ -139,3 +139,10 @@ step-4 Authentication Service & Cryptography:
             Cross-user access check via assertOwnsResource returns 403 Forbidden
             logout succeeds and clears cookies
             Both backend and frontend builds pass TypeScript checks cleanly.
+
+step:5 Interview setup 
+    interview.validator.ts: Zod schema for role, experienceLevel, interviewType, difficulty, questionLimit, resumeId — with enum constraints and limits
+    interview.service.ts: createInterview() + getInterviewById() with ownership check + stubbed checkUsageLimit() that queries UsageLimit (wired now, enforced in Step 7)
+    interview.controller.ts: Handles POST /api/interviews and GET /api/interviews/:id
+    interview.routes.ts: Both routes gated behind authenticate middleware
+    routes/index.ts: Wired /interviews into the API router

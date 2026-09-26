@@ -41,10 +41,10 @@ Concrete, actionable tasks for every step (2–17). Check items off as you go. E
 - **Done when:** hitting a protected route with no token → 401; hitting another user's resource with a valid token → 403.
 
 ### Step 5 — Interview setup
-- [ ] `POST /api/interviews` — controller + route + Zod validator (`role, experienceLevel, interviewType, difficulty, questionLimit`)
-- [ ] `src/services/interview.service.ts` — `createInterview()`
-- [ ] `GET /api/interviews/:id` — with ownership check
-- [ ] Stub a `UsageLimit` check here (full enforcement lands in Step 7 — at minimum, don't let it silently skip)
+- [x] `POST /api/interviews` — controller + route + Zod validator (`role, experienceLevel, interviewType, difficulty, questionLimit`)
+- [x] `src/services/interview.service.ts` — `createInterview()`
+- [x] `GET /api/interviews/:id` — with ownership check
+- [x] Stub a `UsageLimit` check here (full enforcement lands in Step 7 — at minimum, don't let it silently skip)
 - **Done when:** you can create and fetch an interview record via API (Postman/curl is fine — UI comes in Step 9.1).
 
 ---
