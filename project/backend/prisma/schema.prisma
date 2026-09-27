@@ -35,7 +35,22 @@ model Resume {
   updatedAt  DateTime    @updatedAt
 
   interviews Interview[]
+  // ResumeChunk relation will be added in Step 11:
+  // chunks ResumeChunk[]
 }
+
+// Note: ResumeChunk will be added in Step 11 with pgvector(3072):
+// model ResumeChunk {
+//   id             String                     @id @default(uuid())
+//   resumeId       String
+//   section        String?
+//   text           String                     @db.Text
+//   embedding      Unsupported("vector(3072)")
+//   sourcePosition Int?
+//   createdAt      DateTime                   @default(now())
+//   resume         Resume                     @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+//   @@index([resumeId])
+// }
 
 model Interview {
   id              String     @id @default(uuid())

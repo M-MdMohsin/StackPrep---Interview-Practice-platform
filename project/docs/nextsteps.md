@@ -52,12 +52,12 @@ Concrete, actionable tasks for every step (2–17). Check items off as you go. E
 ## PHASE 2 — CORE INTERVIEW LOOP
 
 ### Step 6 — AI provider abstraction
-- [ ] Define `AIProvider` interface: `generateQuestion, evaluateAnswer, generateFollowUp, analyzeResume, generateReport, generateEmbedding`
-- [ ] `GeminiProvider` — using the official Gemini SDK, structured JSON output mode
-- [ ] `GroqProvider` — OpenAI-compatible SDK pointed at Groq's endpoint
-- [ ] `OpenRouterProvider` — as a third fallback
-- [ ] `AIService` — picks provider from config, tries fallback order on failure, exposes the same interface regardless of active provider
-- [ ] Wire `generateEmbedding()` to Gemini `text-embedding-004`
+- [x] Define `AIProvider` interface: `generateQuestion, evaluateAnswer, generateFollowUp, analyzeResume, generateReport, generateEmbedding`
+- [x] `GeminiProvider` — using the official Gemini SDK, structured JSON output mode
+- [x] `GroqProvider` — OpenAI-compatible SDK pointed at Groq's endpoint
+- [x] `OpenRouterProvider` — as a third fallback
+- [x] `AIService` — picks provider from config, tries fallback order on failure, exposes the same interface regardless of active provider
+- [x] Wire `generateEmbedding()` to Gemini `gemini-embedding-2`
 - **Done when:** a standalone test script can call `AIService.generateQuestion()` and get a real response from at least one provider; killing the primary provider's key causes automatic fallback (test this now, not at Step 17).
 
 ### Step 7 — Question generation
@@ -117,7 +117,7 @@ Concrete, actionable tasks for every step (2–17). Check items off as you go. E
 - **Done when:** uploading a real resume returns extracted skills; deleting it removes the file and DB row.
 
 ### Step 11 — RAG with pgvector
-- [ ] Add `ResumeChunk` model if not already in schema (`resumeId, section, text, embedding vector(768), sourcePosition`)
+- [ ] Add `ResumeChunk` model if not already in schema (`resumeId, section, text, embedding vector(3072), sourcePosition`)
 - [ ] Chunking function — split resume text into ~200–400 token sections
 - [ ] `src/jobs/embedding.job.ts` — BullMQ worker: on resume upload, enqueue a job that embeds each chunk via `AIService.generateEmbedding()` and writes `ResumeChunk` rows (don't do this inline in the upload request)
 - [ ] Similarity search query using pgvector's cosine-distance operator in `retrieval.service.ts`
