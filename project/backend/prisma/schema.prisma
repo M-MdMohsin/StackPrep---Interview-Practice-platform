@@ -84,8 +84,11 @@ model Question {
   questionText     String     @db.Text
   role             String?
   topic            String?
+  category         String?
   difficulty       String?
+  questionType     String?
   orderIndex       Int        @default(0)
+  source           String?
   status           String     @default("PENDING")
   contextRetrieved Json?
   createdAt        DateTime   @default(now())
@@ -94,6 +97,7 @@ model Question {
   answers          Answer[]
 
   @@index([interviewId])
+  @@unique([interviewId, orderIndex])
 }
 
 model Answer {
@@ -136,6 +140,12 @@ model UsageLimit {
   id                 String   @id @default(uuid())
   userId             String   @unique
   user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dailyLimit         Int      @default(50)
+  monthlyLimit       Int      @default(500)
+  dailyUsed          Int      @default(0)
+  monthlyUsed        Int      @default(0)
+  dailyResetAt       DateTime @default(now())
+  monthlyResetAt     DateTime @default(now())
   dailyRequestCap    Int      @default(50)
   monthlyRequestCap  Int      @default(500)
   dailyCostCap       Float    @default(5.0)
@@ -184,7 +194,7 @@ model PromptVersion {
   aiUsages      AIUsage[]
   evalRuns      EvalRun[]
 
-  @@unique([task, versionLabel])
+  @@unique([task, versionLabel, provider, model])
 }
 
 model EvalRun {

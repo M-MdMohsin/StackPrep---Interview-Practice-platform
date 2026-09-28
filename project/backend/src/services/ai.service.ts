@@ -1,14 +1,12 @@
-// ============================================================
-// AIService — singleton that orchestrates all AI providers
-// with automatic fallback on failure.
-// ============================================================
-
 import { aiConfig } from '../config/ai.config';
 import { GeminiProvider } from '../providers/GeminiProvider';
 import { GroqProvider } from '../providers/GroqProvider';
 import { OpenRouterProvider } from '../providers/OpenRouterProvider';
 import {
   AIProvider,
+  AIResult,
+  AIMeta,
+  AIAttempt,
   AnalyzeResumeParams,
   EvaluateAnswerParams,
   GenerateFollowUpParams,
@@ -19,23 +17,18 @@ import {
   GeneratedReport,
   ResumeAnalysisResult,
 } from '../types/ai.types';
+import { AIServiceError } from '../errors/AIServiceError';
 
-// ── Provider factory ─────────────────────────────────────────
+const REQUEST_TIMEOUT_MS = parseInt(process.env.AI_REQUEST_TIMEOUT_MS ?? '20000', 10);
 
 function buildProvider(name: string): AIProvider {
   switch (name) {
-    case 'gemini':
-      return new GeminiProvider();
-    case 'groq':
-      return new GroqProvider();
-    case 'openrouter':
-      return new OpenRouterProvider();
-    default:
-      throw new Error(`Unknown AI provider: "${name}"`);
+    case 'gemini': return new GeminiProvider();
+    case 'groq': return new GroqProvider();
+    case 'openrouter': return new OpenRouterProvider();
+    default: throw new Error(`Unknown AI provider: "${name}"`);
   }
 }
-
-// ── Service class ────────────────────────────────────────────
 
 class AIServiceManager {
   private readonly providers: AIProvider[];
@@ -53,96 +46,85 @@ class AIServiceManager {
           geminiProvider = provider;
         }
       } catch (err) {
-        console.warn(
-          `[AIService] Skipping provider "${name}": ${(err as Error).message}`,
-        );
+        console.warn(`[AIService] Skipping provider "${name}": ${(err as Error).message}`);
       }
     }
 
     if (providers.length === 0) {
-      throw new Error(
-        '[AIService] No AI providers could be initialised. ' +
-          'Set at least one of GEMINI_API_KEY, GROQ_API_KEY, or OPENROUTER_API_KEY.',
-      );
+      throw new Error('[AIService] No AI providers could be initialised.');
     }
 
     this.providers = providers;
     this.geminiProvider = geminiProvider;
-
-    console.log(
-      `[AIService] Initialised with providers: [${providers.map((p) => p.name).join(', ')}]`,
-    );
+    console.log(`[AIService] Initialised with providers: [${providers.map((p) => p.name).join(', ')}]`);
   }
 
-  // ── Fallback runner ────────────────────────────────────────
-
-  /**
-   * Try each provider in order. On failure, log a warning and try the next.
-   * Throws only after every provider has been tried.
-   */
   private async withFallback<T>(
     operation: string,
     fn: (provider: AIProvider) => Promise<T>,
-  ): Promise<T> {
-    const errors: string[] = [];
+  ): Promise<AIResult<T>> {
+    const startTime = Date.now();
+    const attempts: AIAttempt[] = [];
 
-    for (const provider of this.providers) {
+    for (let i = 0; i < this.providers.length; i++) {
+      const provider = this.providers[i];
+      let timedOut = false;
       try {
-        const result = await fn(provider);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => {
+            timedOut = true;
+            reject(new Error(`Provider "${provider.name}" timed out after ${REQUEST_TIMEOUT_MS}ms`));
+          }, REQUEST_TIMEOUT_MS)
+        );
+        const data = await Promise.race([fn(provider), timeoutPromise]);
+        const latencyMs = Date.now() - startTime;
         console.log(`[AIService] "${operation}" handled by provider: ${provider.name}`);
-        return result;
+        const meta: AIMeta = {
+          provider: provider.name,
+          model: provider.model,
+          latencyMs,
+          fallbackCount: i,
+        };
+        return { data, meta };
       } catch (err) {
         const msg = (err as Error).message;
-        console.warn(
-          `[AIService] Provider "${provider.name}" failed for "${operation}": ${msg}. Trying next provider...`,
-        );
-        errors.push(`${provider.name}: ${msg}`);
+        console.warn(`[AIService] Provider "${provider.name}" failed for "${operation}": ${msg}. Trying next provider...`);
+        attempts.push({ provider: provider.name, model: provider.model, message: msg, timedOut });
       }
     }
 
-    throw new Error(
-      `[AIService] All providers failed for "${operation}":\n${errors.join('\n')}`,
-    );
+    const latencyMs = Date.now() - startTime;
+    throw new AIServiceError(attempts, latencyMs);
   }
 
-  // ── Public API ─────────────────────────────────────────────
-
-  async generateQuestion(params: GenerateQuestionParams): Promise<GeneratedQuestion> {
+  async generateQuestion(params: GenerateQuestionParams): Promise<AIResult<GeneratedQuestion>> {
     return this.withFallback('generateQuestion', (p) => p.generateQuestion(params));
   }
 
-  async evaluateAnswer(params: EvaluateAnswerParams): Promise<GeneratedEvaluation> {
+  async evaluateAnswer(params: EvaluateAnswerParams): Promise<AIResult<GeneratedEvaluation>> {
     return this.withFallback('evaluateAnswer', (p) => p.evaluateAnswer(params));
   }
 
-  async generateFollowUp(params: GenerateFollowUpParams): Promise<GeneratedQuestion> {
+  async generateFollowUp(params: GenerateFollowUpParams): Promise<AIResult<GeneratedQuestion>> {
     return this.withFallback('generateFollowUp', (p) => p.generateFollowUp(params));
   }
 
-  async analyzeResume(params: AnalyzeResumeParams): Promise<ResumeAnalysisResult> {
+  async analyzeResume(params: AnalyzeResumeParams): Promise<AIResult<ResumeAnalysisResult>> {
     return this.withFallback('analyzeResume', (p) => p.analyzeResume(params));
   }
 
-  async generateReport(params: GenerateReportParams): Promise<GeneratedReport> {
+  async generateReport(params: GenerateReportParams): Promise<AIResult<GeneratedReport>> {
     return this.withFallback('generateReport', (p) => p.generateReport(params));
   }
 
-  /**
-   * Always delegates to the Gemini provider directly, since Groq and
-   * OpenRouter do not support embedding generation.
-   */
   async generateEmbedding(text: string): Promise<number[]> {
     if (!this.geminiProvider) {
-      throw new Error(
-        '[AIService] generateEmbedding requires GEMINI_API_KEY to be set. ' +
-          'Groq and OpenRouter do not support embeddings.',
-      );
+      throw new Error('[AIService] generateEmbedding requires GEMINI_API_KEY to be set.');
     }
     console.log('[AIService] "generateEmbedding" handled by provider: gemini');
     return this.geminiProvider.generateEmbedding(text);
   }
 }
 
-// Export a single shared instance
 export const AIService = new AIServiceManager();
 export const AIServiceInstance = AIService;

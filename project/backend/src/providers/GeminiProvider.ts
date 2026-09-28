@@ -26,6 +26,7 @@ import {
 
 export class GeminiProvider implements AIProvider {
   readonly name = 'gemini';
+  readonly model: string;
 
   private readonly client: GoogleGenerativeAI;
   private readonly modelName: string;
@@ -38,6 +39,7 @@ export class GeminiProvider implements AIProvider {
     }
     this.client = new GoogleGenerativeAI(apiKey);
     this.modelName = model;
+    this.model = model;
     this.embeddingModelName = embeddingModel;
   }
 

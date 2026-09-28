@@ -27,6 +27,7 @@ import {
 
 export class OpenRouterProvider implements AIProvider {
   readonly name = 'openrouter';
+  readonly model: string;
 
   private readonly client: OpenAI;
   private readonly modelName: string;
@@ -41,6 +42,7 @@ export class OpenRouterProvider implements AIProvider {
       baseURL: 'https://openrouter.ai/api/v1',
     });
     this.modelName = model;
+    this.model = model;
   }
 
   // ── Private helpers ──────────────────────────────────────

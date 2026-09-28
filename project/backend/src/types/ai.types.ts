@@ -84,7 +84,8 @@ export interface GeneratedReport {
 
 export interface AIProvider {
   /** Human-readable name for logging */
-  name: string;
+  readonly name: string;
+  readonly model: string;
 
   generateQuestion(params: GenerateQuestionParams): Promise<GeneratedQuestion>;
   evaluateAnswer(params: EvaluateAnswerParams): Promise<GeneratedEvaluation>;
@@ -97,4 +98,25 @@ export interface AIProvider {
    * Only Gemini supports this; Groq/OpenRouter providers throw a clear error.
    */
   generateEmbedding(text: string): Promise<number[]>;
+}
+
+// AI Service Meta
+export interface AIMeta {
+  provider: string;
+  model: string;
+  latencyMs: number;
+  fallbackCount: number;
+}
+
+export interface AIResult<T> {
+  data: T;
+  meta: AIMeta;
+}
+
+// AI Service Error
+export interface AIAttempt {
+  provider: string;
+  model: string;
+  message: string;
+  timedOut: boolean;
 }

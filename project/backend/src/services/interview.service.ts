@@ -1,6 +1,7 @@
 import { prisma } from '../config/prisma';
 import { CreateInterviewInput } from '../validators/interview.validator';
 import { ForbiddenError } from './authorization.service';
+import { UsageLimitService } from './usage-limit.service';
 
 export class UsageLimitExceededError extends Error {
   statusCode = 429;
@@ -20,27 +21,6 @@ export class InterviewNotFoundError extends Error {
 
 export class InterviewService {
   /**
-   * Stub usage-limit check. Full enforcement lands in Step 7.
-   * Queries the UsageLimit record for the user so the check is wired — it
-   * just doesn't hard-block yet (returns false). Replace the body in Step 7.
-   */
-  static async checkUsageLimit(userId: string): Promise<void> {
-    const usageLimit = await prisma.usageLimit.findUnique({
-      where: { userId },
-    });
-
-    // Step 7 will enforce these caps properly.
-    // For now we just ensure the record exists and the query path is wired.
-    // If the record doesn't exist yet it means no limits have been set — allow.
-    if (!usageLimit) {
-      return;
-    }
-
-    // TODO (Step 7): count today's AIUsage rows for this user and throw
-    // UsageLimitExceededError when dailyRequestCap / monthlyRequestCap is reached.
-  }
-
-  /**
    * Creates a new Interview record for the given user.
    */
   static async createInterview(
@@ -48,7 +28,7 @@ export class InterviewService {
     data: CreateInterviewInput
   ) {
     // Stub usage-limit check — wired now, enforced in Step 7.
-    await InterviewService.checkUsageLimit(userId);
+    await UsageLimitService.assertWithinLimit(userId);
 
     const interview = await prisma.interview.create({
       data: {

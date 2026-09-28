@@ -15,33 +15,38 @@ async function main(): Promise<void> {
 
   // 1. Question Generation
   console.log('--- 1. Testing generateQuestion ---');
-  const question = await AIService.generateQuestion({
+  const questionResult = await AIService.generateQuestion({
     role: 'Backend Developer',
     experienceLevel: 'MID',
     interviewType: 'TECHNICAL',
     difficulty: 'MEDIUM',
     topic: 'Database Indexing',
   });
-  console.log('Result:', JSON.stringify(question, null, 2));
+  console.log('Data:', JSON.stringify(questionResult.data, null, 2));
+  console.log('Meta:', JSON.stringify(questionResult.meta, null, 2));
+  const question = questionResult.data;
 
   // 2. Answer Evaluation
   console.log('\n--- 2. Testing evaluateAnswer ---');
-  const evaluation = await AIService.evaluateAnswer({
+  const evaluationResult = await AIService.evaluateAnswer({
     questionText: question.questionText,
     answerText: 'A B-tree index keeps data sorted and allows searches, sequential access, insertions, and deletions in logarithmic time. It reduces disk I/O by having high branching factor.',
     role: 'Backend Developer',
     difficulty: 'MEDIUM',
   });
-  console.log('Result:', JSON.stringify(evaluation, null, 2));
+  console.log('Data:', JSON.stringify(evaluationResult.data, null, 2));
+  console.log('Meta:', JSON.stringify(evaluationResult.meta, null, 2));
+  const evaluation = evaluationResult.data;
 
   // 3. Follow-up Question
   console.log('\n--- 3. Testing generateFollowUp ---');
-  const followUp = await AIService.generateFollowUp({
+  const followUpResult = await AIService.generateFollowUp({
     originalQuestion: question.questionText,
     answerText: 'A B-tree index keeps data sorted and allows searches in logarithmic time.',
     evaluation,
   });
-  console.log('Result:', JSON.stringify(followUp, null, 2));
+  console.log('Data:', JSON.stringify(followUpResult.data, null, 2));
+  console.log('Meta:', JSON.stringify(followUpResult.meta, null, 2));
 
   // 4. Resume Analysis
   console.log('\n--- 4. Testing analyzeResume ---');
@@ -54,14 +59,16 @@ async function main(): Promise<void> {
       Education: B.S. in Computer Science from State University, 2020.
     `,
   });
-  console.log('Result:', JSON.stringify(resumeResult, null, 2));
+  console.log('Data:', JSON.stringify(resumeResult.data, null, 2));
+  console.log('Meta:', JSON.stringify(resumeResult.meta, null, 2));
 
   // 5. Report Generation
   console.log('\n--- 5. Testing generateReport ---');
-  const report = await AIService.generateReport({
+  const reportResult = await AIService.generateReport({
     interviewSummary: 'Candidate answered 3 questions on Databases and System Design. Strong understanding of indexing and caching, but struggled with distributed consensus and replication lag.',
   });
-  console.log('Result:', JSON.stringify(report, null, 2));
+  console.log('Data:', JSON.stringify(reportResult.data, null, 2));
+  console.log('Meta:', JSON.stringify(reportResult.meta, null, 2));
 
   // 6. Vector Embedding
   console.log('\n--- 6. Testing generateEmbedding ---');

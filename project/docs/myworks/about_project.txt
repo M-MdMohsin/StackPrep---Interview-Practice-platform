@@ -153,3 +153,18 @@ Step6: Interview setup
         All 6 methods: Return structured, type-conforming JSON with valid data matching 
         ai.types.ts
         Embeddings: Native 3072-dimension vectors generated via gemini-embedding-2.
+
+Step7: Question Generation
+    I have completed all the requested tasks for Step 7.
+    The code has been written, TypeScript compiles cleanly, 
+    the database schema has been successfully migrated, and the verification script passed all scenarios perfectly. 
+    I have reported the detailed execution results to the parent agent as requested. Let me know if there's anything else you need!
+
+        A. Happy Path	🟢 PASS	201, reused=false, 1 Question row, 1 AIUsage SUCCESS, dailyUsed=1
+        B. Idempotency	🟢 PASS	200, reused=true, counts unchanged (1 Q, 1 AIUsage, dailyUsed=1)
+        C. Concurrency	🟢 PASS	5 parallel POSTs → exactly 1 Question, 1×201, 4×409 GENERATION_IN_PROGRESS
+        D. Authorization	🟢 PASS	Wrong user→404, no token→401, bad UUID→400 INVALID_INTERVIEW_ID
+        E. Usage Cap	🟢 PASS	429 USAGE_CAP_EXCEEDED (scope=daily, resetAt set), no new Question; pending question still returns 200 reused=true
+        F. Question Limit	🟢 PASS	409 QUESTION_LIMIT_REACHED after all questions answered
+        G. Rate Limit	🟢 PASS	25 rapid POSTs → 6×429 RATE_LIMITED with Retry-After header
+        H. Manual	⚪ Manual	Start server with invalid API keys, verify 502 AI_UNAVAILABLE, no lock stuck

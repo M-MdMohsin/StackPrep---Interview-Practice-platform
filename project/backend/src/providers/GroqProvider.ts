@@ -27,6 +27,7 @@ import {
 
 export class GroqProvider implements AIProvider {
   readonly name = 'groq';
+  readonly model: string;
 
   private readonly client: OpenAI;
   private readonly modelName: string;
@@ -41,6 +42,7 @@ export class GroqProvider implements AIProvider {
       baseURL: 'https://api.groq.com/openai/v1',
     });
     this.modelName = model;
+    this.model = model;
   }
 
   // ── Private helpers ──────────────────────────────────────
