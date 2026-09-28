@@ -146,3 +146,10 @@ step:5 Interview setup
     interview.controller.ts: Handles POST /api/interviews and GET /api/interviews/:id
     interview.routes.ts: Both routes gated behind authenticate middleware
     routes/index.ts: Wired /interviews into the API router
+
+Step6: Interview setup
+    Verification Summary
+        Fallback system: Validated and working across providers (gemini -> groq -> openrouter).
+        All 6 methods: Return structured, type-conforming JSON with valid data matching 
+        ai.types.ts
+        Embeddings: Native 3072-dimension vectors generated via gemini-embedding-2.
