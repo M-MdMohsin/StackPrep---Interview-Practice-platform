@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma';
-import { buildQuestionPrompt } from '../prompts/builders';
+import { buildQuestionPrompt, buildEvaluationPrompt } from '../prompts/builders';
 
 const cache = new Map<string, string>(); // key -> promptVersionId
 
@@ -14,10 +14,22 @@ export class PromptVersionService {
     const cached = cache.get(cacheKey);
     if (cached) return cached;
 
-    // Build template — for question-generation, use the prompt builder with placeholder params
-    const template = task === 'question-generation'
-      ? buildQuestionPrompt({ role: '__role__', experienceLevel: '__level__', interviewType: '__type__', difficulty: '__difficulty__' })
-      : `${task} template`;
+    let template = `${task} template`;
+    if (task === 'question-generation') {
+      template = buildQuestionPrompt({
+        role: '__role__',
+        experienceLevel: '__level__',
+        interviewType: '__type__',
+        difficulty: '__difficulty__',
+      });
+    } else if (task === 'evaluation') {
+      template = buildEvaluationPrompt({
+        questionText: '__question__',
+        answerText: '__answer__',
+        role: '__role__',
+        difficulty: '__difficulty__',
+      });
+    }
 
     const record = await prisma.promptVersion.upsert({
       where: { task_versionLabel_provider_model: { task, versionLabel, provider, model } },
