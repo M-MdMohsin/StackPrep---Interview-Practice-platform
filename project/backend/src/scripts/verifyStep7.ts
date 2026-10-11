@@ -180,11 +180,21 @@ async function main() {
   if (genF1.status !== 201) {
     fail('F', `First generate failed: ${genF1.status} ${JSON.stringify(genF1.data)}`);
   } else {
-    // Add an answer to the pending question
+    // Add an answer and evaluation to complete the pending question
     const questionF = await prisma.question.findFirst({ where: { interviewId: interviewId_F } });
     if (questionF) {
-      await prisma.answer.create({
+      const ansF = await prisma.answer.create({
         data: { questionId: questionF.id, answerText: 'Test answer' },
+      });
+      await prisma.evaluation.create({
+        data: {
+          answerId: ansF.id,
+          score: 8,
+          strengths: ['Clear explanation'],
+          weaknesses: [],
+          missingConcepts: [],
+          feedback: 'Good answer.',
+        },
       });
     }
     

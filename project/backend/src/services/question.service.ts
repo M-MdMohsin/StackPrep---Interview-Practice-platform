@@ -9,6 +9,7 @@ import { limitsConfig } from '../config/limits.config';
 import { generatedQuestionSchema } from '../validators/question.validator';
 import { PROMPT_VERSIONS } from '../prompts/versions';
 import { logger } from '../config/logger';
+import { getPendingQuestion, countTopLevel, QuestionState } from './interview-state.service';
 
 export class AppError extends Error {
   statusCode: number;
@@ -63,10 +64,14 @@ export class QuestionService {
         where: { id: interviewId },
         include: {
           questions: {
-            where: { parentQuestionId: null },
             orderBy: { orderIndex: 'asc' },
             include: {
-              answers: { select: { id: true }, take: 1 },
+              answers: {
+                include: {
+                  evaluation: { select: { id: true } },
+                },
+                take: 1,
+              },
             },
           },
         },
@@ -106,16 +111,23 @@ export class QuestionService {
     let resultQuestion: any = null;
 
     try {
-      const questions = interview.questions as any[];
-      const topLevelQuestions = questions;
+      // Map raw DB rows to QuestionState shape
+      const allQuestions: QuestionState[] = (interview.questions as any[]).map((q) => ({
+        id: q.id,
+        orderIndex: q.orderIndex,
+        parentQuestionId: q.parentQuestionId,
+        answer: q.answers[0]
+          ? { id: q.answers[0].id, evaluation: q.answers[0].evaluation ?? null }
+          : null,
+      }));
 
-      const pendingQuestion = [...questions]
-        .reverse()
-        .find((q: any) => q.answers.length === 0);
+      const pendingQuestion = getPendingQuestion(allQuestions);
 
       if (pendingQuestion) {
+        // Return the raw question row for mapping
+        const rawPending = (interview.questions as any[]).find((q: any) => q.id === pendingQuestion.id);
         reused = true;
-        resultQuestion = pendingQuestion;
+        resultQuestion = rawPending;
         logger.info({ interviewId, userId, reused: true, provider: null, latencyMs: 0 }, 'Returning existing pending question');
         return {
           question: mapQuestion(resultQuestion),
@@ -124,11 +136,13 @@ export class QuestionService {
         };
       }
 
-      if (topLevelQuestions.length >= interview.questionLimit) {
+      const topLevelCount = countTopLevel(allQuestions);
+      if (topLevelCount >= interview.questionLimit) {
         throw new AppError(409, 'QUESTION_LIMIT_REACHED', 'Question limit reached for this interview');
       }
 
       await UsageLimitService.getOrCreateUsageLimit(userId);
+
       
       try {
         await UsageLimitService.reserveUsage(userId);
@@ -142,7 +156,7 @@ export class QuestionService {
         throw err;
       }
 
-      const previousQuestions = questions.map((q: any) => q.questionText);
+      const previousQuestions = (interview.questions as any[]).map((q: any) => q.questionText);
       let aiResult: any;
       let meta: any;
       let validatedData: any;
@@ -266,15 +280,17 @@ export class QuestionService {
         throw err;
       }
 
-      const existingTexts = questions.map((q: any) => q.questionText.trim().toLowerCase().replace(/\s+/g, ' '));
+      const existingTexts = (interview.questions as any[]).map((q: any) => q.questionText.trim().toLowerCase().replace(/\s+/g, ' '));
       const newText = validatedData.questionText.trim().toLowerCase().replace(/\s+/g, ' ');
       if (existingTexts.includes(newText)) {
         await UsageLimitService.refundUsage(userId);
         throw new AppError(502, 'AI_OUTPUT_INVALID', 'AI generated a duplicate question');
       }
 
-      const nextOrder = topLevelQuestions.length > 0
-        ? Math.max(...topLevelQuestions.map((q: any) => q.orderIndex)) + 1
+      // nextOrder is based on top-level questions only
+      const topLevelRaw = (interview.questions as any[]).filter((q: any) => q.parentQuestionId === null);
+      const nextOrder = topLevelRaw.length > 0
+        ? Math.max(...topLevelRaw.map((q: any) => q.orderIndex)) + 1
         : 1;
 
       try {
@@ -298,16 +314,31 @@ export class QuestionService {
             where: { id: interviewId },
             include: {
               questions: {
-                where: { parentQuestionId: null },
                 orderBy: { orderIndex: 'asc' },
-                include: { answers: { select: { id: true }, take: 1 } },
+                include: {
+                  answers: {
+                    include: { evaluation: { select: { id: true } } },
+                    take: 1,
+                  },
+                },
               },
             },
           });
-          const pending = refetched?.questions?.find((q: any) => q.answers.length === 0);
-          if (pending) {
+          const refetchedStates: QuestionState[] = (refetched?.questions ?? []).map((q: any) => ({
+            id: q.id,
+            orderIndex: q.orderIndex,
+            parentQuestionId: q.parentQuestionId,
+            answer: q.answers[0]
+              ? { id: q.answers[0].id, evaluation: q.answers[0].evaluation ?? null }
+              : null,
+          }));
+          const racePending = getPendingQuestion(refetchedStates);
+          const rawRacePending = racePending
+            ? refetched?.questions?.find((q: any) => q.id === racePending.id)
+            : null;
+          if (rawRacePending) {
             reused = true;
-            resultQuestion = pending;
+            resultQuestion = rawRacePending;
           } else {
             throw new AppError(409, 'QUESTION_LIMIT_REACHED', 'Question limit reached');
           }

@@ -265,11 +265,12 @@ async function main() {
     },
   });
 
-  // Now question 1 is the pending question. Try to answer the stray question 2:
-  const resF = await submitAnswer(strayQuestion.id, validAnswerText, token2);
+  // Under Step 9's highest-order pending definition, strayQuestion (order 2) is pending.
+  // Therefore, attempting to answer q1_F (order 1) returns 409 QUESTION_NOT_PENDING.
+  const resF = await submitAnswer(q1_F, validAnswerText, token2);
 
   if (resF.status === 409 && resF.data.code === 'QUESTION_NOT_PENDING') {
-    pass('F', `status=409, code=QUESTION_NOT_PENDING when attempting to answer non-pending question`);
+    pass('F', `status=409, code=QUESTION_NOT_PENDING when attempting to answer non-pending question (order 1 while order 2 is pending)`);
   } else {
     fail('F', `status=${resF.status}, code=${resF.data?.code}, data=${JSON.stringify(resF.data)}`);
   }

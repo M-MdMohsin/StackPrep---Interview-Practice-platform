@@ -13,6 +13,7 @@ import { evaluationSchema } from '../validators/evaluation.validator';
 import { PROMPT_VERSIONS } from '../prompts/versions';
 import { logger } from '../config/logger';
 import { AppError } from './question.service';
+import { getPendingQuestion, QuestionState } from './interview-state.service';
 
 export interface SubmitAnswerResult {
   answer: {
@@ -72,20 +73,20 @@ export class AnswerService {
       throw new AppError(400, 'INVALID_QUESTION_ID', 'Invalid question ID format');
     }
 
-    // 1. Load question with interview and existing answers
+    // 1. Load question with interview (ALL questions, incl. follow-ups) and existing answers
     const question = await prisma.question.findUnique({
       where: { id: questionId },
       include: {
         interview: {
           include: {
             questions: {
-              where: { parentQuestionId: null },
               orderBy: { orderIndex: 'asc' },
               include: {
                 answers: {
                   include: {
-                    evaluation: true,
+                    evaluation: { select: { id: true } },
                   },
+                  take: 1,
                 },
               },
             },
@@ -95,6 +96,7 @@ export class AnswerService {
           include: {
             evaluation: true,
           },
+          take: 1,
         },
       },
     });
@@ -107,39 +109,23 @@ export class AnswerService {
       throw new AppError(409, 'INTERVIEW_NOT_ACTIVE', 'Interview is not in progress');
     }
 
-    // 2. Compute current pending question (highest-order top-level question with no completed answer+evaluation)
-    const topLevelQuestions = question.interview.questions;
-    const pendingQuestion = [...topLevelQuestions].find(
-      (q) => q.answers.length === 0 || !q.answers[0].evaluation
-    );
+    // 2. Compute the pending question using shared definition (top-level AND follow-ups)
+    const allQuestions: QuestionState[] = (question.interview.questions as any[]).map((q) => ({
+      id: q.id,
+      orderIndex: q.orderIndex,
+      parentQuestionId: q.parentQuestionId,
+      answer: q.answers[0]
+        ? { id: q.answers[0].id, evaluation: q.answers[0].evaluation ?? null }
+        : null,
+    }));
 
-    const existingAnswer = question.answers[0];
+    const pendingQuestion = getPendingQuestion(allQuestions);
 
-    if (pendingQuestion && question.id !== pendingQuestion.id) {
-      // If this question already has an answer + evaluation, treat as idempotent retry
-      if (existingAnswer && existingAnswer.evaluation) {
-        logger.info(
-          { questionId, userId, reused: true, guardrailFlagged: false, provider: null, latencyMs: 0 },
-          'Returning existing answer evaluation'
-        );
-        return {
-          answer: {
-            id: existingAnswer.id,
-            questionId: existingAnswer.questionId,
-            answerText: existingAnswer.answerText,
-            createdAt: existingAnswer.createdAt,
-          },
-          evaluation: mapEvaluation(existingAnswer.evaluation),
-          reused: true,
-          guardrail: { flagged: false },
-        };
-      }
-      // Otherwise non-pending unanswered question
-      throw new AppError(409, 'QUESTION_NOT_PENDING', 'This question is not the current pending question');
-    }
+    const existingAnswer = (question.answers as any[])[0] ?? null;
+    const isComplete = existingAnswer !== null && existingAnswer.evaluation !== null;
 
-    // 3. Idempotent check (already answered and evaluated)
-    if (existingAnswer && existingAnswer.evaluation) {
+    if (isComplete) {
+      // Idempotent: question fully evaluated — return it regardless of pending position
       logger.info(
         { questionId, userId, reused: true, guardrailFlagged: false, provider: null, latencyMs: 0 },
         'Returning existing answer evaluation'
@@ -155,6 +141,11 @@ export class AnswerService {
         reused: true,
         guardrail: { flagged: false },
       };
+    }
+
+    // 3. Not complete — check if this question is the pending question
+    if (!pendingQuestion || question.id !== pendingQuestion.id) {
+      throw new AppError(409, 'QUESTION_NOT_PENDING', 'This question is not the current pending question');
     }
 
     // 4. Acquire Redis lock
@@ -221,59 +212,69 @@ export class AnswerService {
       }
       const validatedAnswerText = bodyValidation.data.answerText;
 
-      // 5c. Run guardrail injection check
-      const guardrailResult = detectInjection(validatedAnswerText);
-      const guardrailFlagged = guardrailResult.flagged;
+      let savedAnswer: any;
+      let guardrailFlagged = false;
 
-      if (guardrailFlagged && guardrailConfig.policy === 'reject') {
-        logger.warn(
-          {
-            event: 'guardrail_flagged',
-            source: 'answer',
-            severity: guardrailResult.severity,
-            matchCount: guardrailResult.matchCount,
-            userId,
-            questionId,
-          },
-          'Guardrail rejected injection attempt'
-        );
-        throw new AppError(
-          422,
-          'ANSWER_REJECTED_GUARDRAIL',
-          'Answer rejected by safety guardrail policy'
-        );
-      }
+      if (currentAnswer) {
+        // Resume path: Answer exists without evaluation.
+        // REUSE existing Answer row: never create a second one, never overwrite stored answerText.
+        savedAnswer = currentAnswer;
+        const storedGuardrail = detectInjection(savedAnswer.answerText);
+        guardrailFlagged = storedGuardrail.flagged;
+        if (guardrailFlagged) {
+          logger.warn(
+            {
+              event: 'guardrail_flagged',
+              source: 'answer',
+              severity: storedGuardrail.severity,
+              matchCount: storedGuardrail.matchCount,
+              userId,
+              questionId,
+            },
+            'Guardrail flagged stored answer text on resume'
+          );
+        }
+      } else {
+        // New Answer path: run injection check with reject policy enforcement
+        const guardrailResult = detectInjection(validatedAnswerText);
+        guardrailFlagged = guardrailResult.flagged;
 
-      if (guardrailFlagged) {
-        logger.warn(
-          {
-            event: 'guardrail_flagged',
-            source: 'answer',
-            severity: guardrailResult.severity,
-            matchCount: guardrailResult.matchCount,
-            userId,
-            questionId,
-          },
-          'Guardrail flagged potential injection attempt'
-        );
-      }
+        if (guardrailFlagged && guardrailConfig.policy === 'reject') {
+          logger.warn(
+            {
+              event: 'guardrail_flagged',
+              source: 'answer',
+              severity: guardrailResult.severity,
+              matchCount: guardrailResult.matchCount,
+              userId,
+              questionId,
+            },
+            'Guardrail rejected injection attempt'
+          );
+          throw new AppError(
+            422,
+            'ANSWER_REJECTED_GUARDRAIL',
+            'Answer rejected by safety guardrail policy'
+          );
+        }
 
-      // 5d. Save Answer row
-      let savedAnswer = currentAnswer;
-      if (!savedAnswer) {
+        if (guardrailFlagged) {
+          logger.warn(
+            {
+              event: 'guardrail_flagged',
+              source: 'answer',
+              severity: guardrailResult.severity,
+              matchCount: guardrailResult.matchCount,
+              userId,
+              questionId,
+            },
+            'Guardrail flagged potential injection attempt'
+          );
+        }
+
         savedAnswer = await prisma.answer.create({
           data: {
             questionId,
-            answerText: validatedAnswerText,
-          },
-          include: {
-            evaluation: true,
-          },
-        });
-      } else if (savedAnswer.answerText !== validatedAnswerText) {
-        savedAnswer = await prisma.answer.update({
-          where: { id: savedAnswer.id },
-          data: {
             answerText: validatedAnswerText,
           },
           include: {
@@ -299,7 +300,7 @@ export class AnswerService {
       // 5f. Call AI Service
       const evalParams = {
         questionText: question.questionText,
-        answerText: validatedAnswerText,
+        answerText: savedAnswer.answerText,
         role: question.role || question.interview.role,
         difficulty: question.difficulty || question.interview.difficulty,
       };
