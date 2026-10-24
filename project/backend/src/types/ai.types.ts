@@ -51,6 +51,12 @@ export interface GenerateFollowUpParams {
   originalQuestion: string;
   answerText: string;
   evaluation: GeneratedEvaluation;
+  // Additive optional fields (Step 9 Part 2)
+  role?: string;
+  experienceLevel?: string;
+  difficulty?: string;
+  focusConcept?: string | null;
+  previousQuestions?: string[];
 }
 
 // ── Resume Analysis ──────────────────────────────────────────

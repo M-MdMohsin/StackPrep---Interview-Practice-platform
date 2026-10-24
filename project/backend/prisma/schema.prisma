@@ -98,6 +98,7 @@ model Question {
 
   @@index([interviewId])
   @@unique([interviewId, orderIndex])
+  @@unique([parentQuestionId])
 }
 
 model Answer {

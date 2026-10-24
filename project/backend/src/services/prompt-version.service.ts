@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma';
-import { buildQuestionPrompt, buildEvaluationPrompt } from '../prompts/builders';
+import { buildQuestionPrompt, buildEvaluationPrompt, buildFollowUpPrompt } from '../prompts/builders';
 
 const cache = new Map<string, string>(); // key -> promptVersionId
 
@@ -28,6 +28,24 @@ export class PromptVersionService {
         answerText: '__answer__',
         role: '__role__',
         difficulty: '__difficulty__',
+      });
+    } else if (task === 'follow-up') {
+      template = buildFollowUpPrompt({
+        originalQuestion: '__question__',
+        answerText: '__answer__',
+        evaluation: {
+          score: 0,
+          accuracyScore: 0,
+          clarityScore: 0,
+          completenessScore: 0,
+          relevanceScore: 0,
+          communicationScore: 0,
+          strengths: [],
+          weaknesses: [],
+          missingConcepts: [],
+          feedback: '__feedback__',
+          idealAnswer: '',
+        },
       });
     }
 

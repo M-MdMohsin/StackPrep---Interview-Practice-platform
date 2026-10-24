@@ -50,3 +50,32 @@ export function getLastCompletedQuestion(questions: QuestionState[]): QuestionSt
 export function countTopLevel(questions: QuestionState[]): number {
   return questions.filter((q) => q.parentQuestionId === null).length;
 }
+
+export interface QuestionNode {
+  id: string;
+  parentQuestionId: string | null;
+}
+
+/**
+ * Returns the depth of a question: number of parent hops from this question
+ * back to a top-level question. Top-level questions return 0.
+ * Loop guard: max 100 hops to prevent infinite cycles from malformed data.
+ */
+export function getQuestionDepth(
+  question: QuestionNode,
+  questionsById: Map<string, QuestionNode>,
+): number {
+  const MAX_HOPS = 100;
+  let depth = 0;
+  let current: QuestionNode | undefined = question;
+  const visited = new Set<string>();
+
+  while (current && current.parentQuestionId !== null) {
+    if (visited.has(current.id)) break; // loop guard
+    visited.add(current.id);
+    depth++;
+    if (depth >= MAX_HOPS) break;
+    current = questionsById.get(current.parentQuestionId) ?? undefined;
+  }
+  return depth;
+}
