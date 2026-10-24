@@ -168,3 +168,29 @@ Step7: Question Generation
         F. Question Limit	🟢 PASS	409 QUESTION_LIMIT_REACHED after all questions answered
         G. Rate Limit	🟢 PASS	25 rapid POSTs → 6×429 RATE_LIMITED with Retry-After header
         H. Manual	⚪ Manual	Start server with invalid API keys, verify 502 AI_UNAVAILABLE, no lock stuck
+
+Step 8 & 9 is done:
+    Unit Tests (followup-policy.test.ts)	🟢 PASS	23/23 tests passed: branch coverage, strict check ordering (DISABLED > DEPTH_LIMIT > BUDGET > OFF_TOPIC > STRONG > MISSING > INCOMPLETE), boundary values, and getQuestionDepth with cycle loop guard.
+    Unit Tests (followup-prompt.test.ts)	🟢 PASS	5/5 tests passed: untrusted data notice present, triple-quote fences applied, focusConcept included when given, "incomplete overall" used when null, no idealAnswer/feedback leakage, 10k-char answer truncated to 3k.
+    Unit Tests (followup-degrade.test.ts)	🟢 PASS	2/2 tests passed: fail-open on two invalid AI outputs falls through to generateQuestion, refunds usage, and generates top-level question; fail-closed on AIServiceError throws 502 AI_UNAVAILABLE without invoking generateQuestion.
+    Unit Tests (interview-state.test.ts)	🟢 PASS	7/7 tests passed: order-invariant pending question selection and depth resolution.
+    Unit Tests (evaluation-retry.test.ts)	🟢 PASS	1/1 test passed: invalid evaluation score retry flow.
+    Scenario A: Weak Seeded Eval	🟢 PASS	Status 201, isFollowUp: true, parentQuestionId matches parent, DB has source: AI_FOLLOW_UP, questionType: follow-up, order: 2. AIUsage recorded FOLLOW_UP SUCCESS, dailyUsed incremented by 1.
+    Scenario B: Idempotency	🟢 PASS	Status 200, reused: true, returns same question ID, question row count unchanged (2), dailyUsed unchanged (2).
+    Scenario C: Answer Follow-Up & Depth Transition	🟢 PASS	POST /answers answered follow-up with 201. Subsequent /generate returned 201 with isFollowUp: false, parentQuestionId: null (depth limit enforced), and progress.current advanced to 2.
+    Scenario D: Strong Seeded Eval	🟢 PASS	Status 201, top-level question returned (isFollowUp: false), 0 FOLLOW_UP AIUsage rows recorded.
+    Scenario E: Off-Topic Seeded Eval	🟢 PASS	Status 201, top-level question returned (relevanceScore: 1 < 3 skipped follow-up), 0 FOLLOW_UP AIUsage rows.
+    Scenario F: Guardrail Severity Check	🟢 PASS	Status 201, prompt injection attempt in answer text triggered high severity guardrail, blocking follow-up and generating top-level question. 0 FOLLOW_UP AIUsage rows.
+    Scenario G: Limit Interplay (questionLimit: 1)	🟢 PASS	Follow-up generated past questionLimit: 1 (status 201). After answering/evaluating it, subsequent /generate returned 409 QUESTION_LIMIT_REACHED.
+    Scenario H: Usage Cap Exhaustion	🟢 PASS	Exhausted dailyUsed = dailyLimit returned 429 USAGE_CAP_EXCEEDED (scope: 'daily', resetAt set), 0 new questions created in DB. Counters restored cleanly.
+    Scenario I: Full Regression	🟢 PASS	Re-ran 
+    verifyStep7.ts
+    , 
+    verifyStep8.ts
+    , and 
+    verifyPending.ts
+    against active server — all passed 100%. Running with FOLLOWUP_ENABLED=false also reproduces Step 7 behavior with all tests green.
+    Scenario J: Manual Failure Mode	🟢 PASS	Live test against server started with invalid provider keys (
+    manualScenarioJ.ts
+    ): returned 502 AI_UNAVAILABLE, no new question created, dailyUsed unchanged, one FOLLOW_UP FAILURE row with failureCategory: ALL_PROVIDERS_FAILED, and lock released cleanly.
+    TypeScript Compilation (npx tsc --noEmit)	🟢 PASS	
