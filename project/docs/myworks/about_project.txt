@@ -194,3 +194,12 @@ Step 8 & 9 is done:
     manualScenarioJ.ts
     ): returned 502 AI_UNAVAILABLE, no new question created, dailyUsed unchanged, one FOLLOW_UP FAILURE row with failureCategory: ALL_PROVIDERS_FAILED, and lock released cleanly.
     TypeScript Compilation (npx tsc --noEmit)	🟢 PASS	
+
+Step 10 Part 1: Secure Resume Upload, Storage, and Text Extraction is done 
+     Adjustments Beyond the Specification
+        Redis Installation on Host: Redis was installed on the Windows development host (winget install Redis.Redis 
+        →
+        → Redis 3.0.504 service on port 6379) so that Redis-backed locks (SET ... EX ... NX) and fail-closed checks (503 SERVICE_UNAVAILABLE) execute against an active Redis instance.
+        TypeScript Compilation for Blob parts: Node 24 native Blob constructor requires BlobPart items typed as Uint8Array<ArrayBuffer>. Buffer instances passed to FormData in the verification script were typed with new Uint8Array(buffer) to ensure clean compilation under npx tsc --noEmit.
+        Direct Multer Error Handling: Instead of forwarding multer errors to Express's generic HTML/text error handler via next(err), multerMiddleware sends formatted { error, code } JSON responses directly (413 FILE_TOO_LARGE and 400 INVALID_UPLOAD).
+    

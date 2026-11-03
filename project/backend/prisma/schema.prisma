@@ -22,11 +22,18 @@ model User {
   aiUsages     AIUsage[]
 }
 
+enum ResumeAnalysisStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
 model Resume {
   id         String      @id @default(uuid())
   userId     String
   user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   fileName   String
+  /// Opaque storage key — NOT a URL. Format: resumes/{userId}/{resumeId}.pdf
   fileUrl    String?
   fileSize   Int?
   rawText    String?     @db.Text
@@ -34,9 +41,23 @@ model Resume {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
+  // Step 10 fields
+  originalFilename    String?
+  fileSizeBytes       Int?
+  pageCount           Int?
+  contentHash         String?
+  parsedEducation     Json?
+  parsedTechnologies  Json?
+  analysisStatus      ResumeAnalysisStatus @default(PENDING)
+  analysisError       String?
+  guardrailFlagged    Boolean @default(false)
+  analyzedAt          DateTime?
+
   interviews Interview[]
   // ResumeChunk relation will be added in Step 11:
   // chunks ResumeChunk[]
+
+  @@unique([userId, contentHash])
 }
 
 // Note: ResumeChunk will be added in Step 11 with pgvector(3072):

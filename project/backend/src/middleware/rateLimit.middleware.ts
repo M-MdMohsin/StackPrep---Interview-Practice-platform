@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible';
 import { redis } from '../config/redis';
 import { limitsConfig } from '../config/limits.config';
+import { resumeConfig } from '../config/resume.config';
+
 
 let redisConnected = false;
 redis.on('connect', () => { redisConnected = true; });
@@ -75,3 +77,29 @@ function makeRateLimitMiddleware(getLimiter: () => any) {
 
 export const aiRateLimiter = makeRateLimitMiddleware(getAiLimiter);
 export const interviewCreateRateLimiter = makeRateLimitMiddleware(getInterviewCreateLimiter);
+
+// ─── Resume upload rate limiter ───────────────────────────────────────────────
+
+const resumeUploadMemoryLimiter = new RateLimiterMemory({
+  points: resumeConfig.uploadLimitPerHour,
+  duration: 3600,
+});
+
+const makeResumeUploadRateLimiter = () =>
+  new RateLimiterRedis({
+    storeClient: redis,
+    keyPrefix: 'rl:resume_upload',
+    points: resumeConfig.uploadLimitPerHour,
+    duration: 3600,
+  });
+
+let _resumeUploadRateLimiter: RateLimiterRedis | null = null;
+
+function getResumeUploadLimiter() {
+  if (!redisConnected) return resumeUploadMemoryLimiter;
+  if (!_resumeUploadRateLimiter) _resumeUploadRateLimiter = makeResumeUploadRateLimiter();
+  return _resumeUploadRateLimiter;
+}
+
+export const resumeUploadRateLimiter = makeRateLimitMiddleware(getResumeUploadLimiter);
+

@@ -4,6 +4,7 @@ import authRoutes from './auth.routes';
 import interviewRoutes from './interview.routes';
 import questionRoutes from './question.routes';
 import answerRoutes from './answer.routes';
+import resumeRoutes from './resume.routes';
 import { AuthController } from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
@@ -15,5 +16,7 @@ router.get('/me', authenticate, AuthController.getMe);
 router.use('/interviews', interviewRoutes);
 router.use('/interviews/:id/questions', questionRoutes);
 router.use('/questions/:questionId/answers', answerRoutes);
+router.use('/resumes', resumeRoutes);
 
 export default router;
+
