@@ -1,22 +1,36 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth.middleware';
-import { resumeUploadRateLimiter } from '../middleware/rateLimit.middleware';
+import { resumeUploadRateLimiter, aiRateLimiter } from '../middleware/rateLimit.middleware';
 import { ResumeController, multerMiddleware } from '../controllers/resume.controller';
 
 const router = Router();
 
 /**
  * POST /api/resumes
- * Middleware order: auth -> rate limiter -> multer -> controller
+ * Middleware order: auth -> resumeUploadRateLimiter -> aiRateLimiter -> multer -> controller
  * Unauthenticated requests never reach multer or touch disk.
  */
 router.post(
   '/',
   authenticate,
   resumeUploadRateLimiter,
+  aiRateLimiter,
   multerMiddleware,
   (req: Request, res: Response, next: NextFunction) => {
     ResumeController.uploadResume(req, res).catch(next);
+  }
+);
+
+/**
+ * POST /api/resumes/:id/analyze
+ * Middleware order: auth -> shared aiRateLimiter -> controller
+ */
+router.post(
+  '/:id/analyze',
+  authenticate,
+  aiRateLimiter,
+  (req: Request, res: Response, next: NextFunction) => {
+    ResumeController.analyzeResume(req, res).catch(next);
   }
 );
 

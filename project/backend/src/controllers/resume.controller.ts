@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { ResumeService } from '../services/resume.service';
+import { ResumeAnalysisService } from '../services/resume-analysis.service';
 import { AppError } from '../services/question.service';
 import { hasPdfMagicBytes } from '../utils/pdf';
 import { resumeConfig } from '../config/resume.config';
@@ -109,8 +110,72 @@ export class ResumeController {
 
       const result = await ResumeService.uploadResume(req.user.id, buffer, clientFilename);
 
-      const statusCode = result.reused ? 200 : 201;
-      res.status(statusCode).json(result);
+      if (result.reused) {
+        res.status(200).json(result);
+        return;
+      }
+
+      // For NEW uploads only (reused === false):
+      // Upload lock was already released inside ResumeService.uploadResume.
+      // Run analysis best-effort.
+      let finalResume = result.resume;
+      let analysisResult = {
+        status: finalResume.analysisStatus,
+        errorCode: finalResume.analysisError,
+      };
+
+      try {
+        const analyzeRes = await ResumeAnalysisService.analyzeResume(finalResume.id, req.user.id);
+        finalResume = analyzeRes.resume;
+        analysisResult = {
+          status: finalResume.analysisStatus,
+          errorCode: finalResume.analysisError,
+        };
+      } catch (analyzeErr: any) {
+        logger.warn(
+          { resumeId: finalResume.id, err: analyzeErr?.message, code: analyzeErr?.code },
+          'Best-effort initial resume analysis failed'
+        );
+        try {
+          finalResume = await ResumeService.getResume(finalResume.id, req.user.id);
+        } catch {}
+        analysisResult = {
+          status: finalResume.analysisStatus,
+          errorCode: finalResume.analysisError ?? analyzeErr?.code ?? 'ANALYSIS_FAILED',
+        };
+      }
+
+      res.status(201).json({
+        resume: finalResume,
+        reused: false,
+        analysis: analysisResult,
+      });
+    } catch (err: any) {
+      handleError(err, res);
+    }
+  }
+
+  /**
+   * POST /api/resumes/:id/analyze
+   * Trigger or retry resume analysis
+   */
+  static async analyzeResume(req: Request, res: Response): Promise<void> {
+    try {
+      if (!req.user?.id) {
+        res.status(401).json({ error: 'Unauthorized', code: 'UNAUTHORIZED' });
+        return;
+      }
+
+      const rawId = req.params.id;
+      const id = Array.isArray(rawId) ? rawId[0] : rawId;
+
+      if (!isValidUuid(id)) {
+        res.status(400).json({ error: 'Invalid resume ID format', code: 'INVALID_RESUME_ID' });
+        return;
+      }
+
+      const result = await ResumeAnalysisService.analyzeResume(id, req.user.id);
+      res.status(200).json(result);
     } catch (err: any) {
       handleError(err, res);
     }

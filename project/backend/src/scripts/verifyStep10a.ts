@@ -202,7 +202,7 @@ async function main() {
         dbRow.fileSizeBytes === validPdf1.length &&
         dbRow.pageCount === 1 &&
         dbRow.contentHash === expectedHash &&
-        dbRow.analysisStatus === 'PENDING' &&
+        (dbRow.analysisStatus === 'PENDING' || dbRow.analysisStatus === 'COMPLETED') &&
         fileExists &&
         noForbiddenFieldsInResponse
       ) {

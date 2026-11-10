@@ -14,6 +14,14 @@ import { Prisma } from '@prisma/client';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+export interface ResumeParsedDto {
+  skills: string[];
+  projects: string[];
+  experience: string[];
+  education: string[];
+  technologies: string[];
+}
+
 export interface ResumeDto {
   id: string;
   originalFilename: string | null;
@@ -24,7 +32,7 @@ export interface ResumeDto {
   guardrailFlagged: boolean;
   createdAt: Date;
   analyzedAt: Date | null;
-  parsed: null; // Part 2 will populate this
+  parsed: ResumeParsedDto | null;
 }
 
 export interface UploadResumeResult {
@@ -37,6 +45,8 @@ export interface UploadResumeResult {
 /**
  * Maps a Prisma Resume row to a safe ResumeDto.
  * NEVER includes extractedText (rawText), fileUrl, contentHash, or internal fields.
+ * Populates parsed with { skills, projects, experience, education, technologies }
+ * when analysisStatus === 'COMPLETED', otherwise null.
  */
 export function toResumeDto(resume: {
   id: string;
@@ -48,7 +58,31 @@ export function toResumeDto(resume: {
   guardrailFlagged: boolean;
   createdAt: Date;
   analyzedAt: Date | null;
+  parsedData?: any;
+  parsedEducation?: any;
+  parsedTechnologies?: any;
 }): ResumeDto {
+  let parsed: ResumeParsedDto | null = null;
+
+  if (resume.analysisStatus === 'COMPLETED') {
+    const data = (resume.parsedData as any) ?? {};
+    parsed = {
+      skills: Array.isArray(data.skills) ? data.skills : [],
+      projects: Array.isArray(data.projects) ? data.projects : [],
+      experience: Array.isArray(data.experience) ? data.experience : [],
+      education: Array.isArray(resume.parsedEducation)
+        ? (resume.parsedEducation as string[])
+        : Array.isArray(data.education)
+        ? data.education
+        : [],
+      technologies: Array.isArray(resume.parsedTechnologies)
+        ? (resume.parsedTechnologies as string[])
+        : Array.isArray(data.technologies)
+        ? data.technologies
+        : [],
+    };
+  }
+
   return {
     id: resume.id,
     originalFilename: resume.originalFilename,
@@ -59,13 +93,13 @@ export function toResumeDto(resume: {
     guardrailFlagged: resume.guardrailFlagged,
     createdAt: resume.createdAt,
     analyzedAt: resume.analyzedAt,
-    parsed: null,
+    parsed,
   };
 }
 
 // ─── Select clause (safe fields only) ────────────────────────────────────────
 
-const RESUME_DTO_SELECT = {
+export const RESUME_DTO_SELECT = {
   id: true,
   originalFilename: true,
   fileSizeBytes: true,
@@ -75,7 +109,10 @@ const RESUME_DTO_SELECT = {
   guardrailFlagged: true,
   createdAt: true,
   analyzedAt: true,
-  // explicitly exclude: rawText, fileUrl, contentHash, parsedData, fileName, fileSize
+  parsedData: true,
+  parsedEducation: true,
+  parsedTechnologies: true,
+  // explicitly exclude: rawText, fileUrl, contentHash, fileName, fileSize
 } as const;
 
 // ─── Service ─────────────────────────────────────────────────────────────────

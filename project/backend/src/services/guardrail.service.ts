@@ -63,7 +63,10 @@ export interface InjectionDetectionResult {
   severity: 'low' | 'high';
 }
 
-export function detectInjection(text: string): InjectionDetectionResult {
+export function detectInjection(
+  text: string,
+  source: 'answer' | 'resume' = 'answer'
+): InjectionDetectionResult {
   let matchCount = 0;
   let hasHighConfidenceMatch = false;
 
@@ -82,7 +85,7 @@ export function detectInjection(text: string): InjectionDetectionResult {
   if (flagged) {
     logger.warn({
       event: 'guardrail_flagged',
-      source: 'answer',
+      source,
       severity,
       matchCount,
     });
