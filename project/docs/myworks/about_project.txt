@@ -202,4 +202,13 @@ Step 10 Part 1: Secure Resume Upload, Storage, and Text Extraction is done
         → Redis 3.0.504 service on port 6379) so that Redis-backed locks (SET ... EX ... NX) and fail-closed checks (503 SERVICE_UNAVAILABLE) execute against an active Redis instance.
         TypeScript Compilation for Blob parts: Node 24 native Blob constructor requires BlobPart items typed as Uint8Array<ArrayBuffer>. Buffer instances passed to FormData in the verification script were typed with new Uint8Array(buffer) to ensure clean compilation under npx tsc --noEmit.
         Direct Multer Error Handling: Instead of forwarding multer errors to Express's generic HTML/text error handler via next(err), multerMiddleware sends formatted { error, code } JSON responses directly (413 FILE_TOO_LARGE and 400 INVALID_UPLOAD).
+
+Step 10 Part 2 — Summary Results (A - G)
+    │ 0 │ 'A' │ 'PASS' │ '201 created, analysisStatus: COMPLETED, 1 AIUsage SUCCESS row (provider: groq, 4320ms), dailyUsed: 1, 
+    parsed: 8 skills, 9 techs, 1 projects, 1 exp, 1 edu' │ │ 1 │ 'B' │ 'PASS' │ 'Parsed output contains 0 email matches and 0 phone matches. 
+    All contact PII stripped while preserving 7 skills and 7 technologies' │ │ 2 │ 'C' │ 'PASS' │ 'Re-upload: 200 reused: true, AIUsage rows unchanged (1), 
+    dailyUsed unchanged (1); POST /analyze on COMPLETED: 200 reused: true, 0 new AI calls, dailyUsed intact' │ │ 3 │ 'D' │ 'PASS' │ '201 created, guardrailFlagged: true in response & DB, 
+    analysis completed gracefully (status: COMPLETED), inert execution preserved' │ │ 4 │ 'E' │ 'PASS' │ "Capped upload: 201 with analysis: { status: 'PENDING', errorCode: 'USAGE_CAP_EXCEEDED' }, 
+    0 AIUsage rows; Restored limit -> POST /analyze returns 200 COMPLETED, exactly 1 AIUsage SUCCESS row recorded, dailyUsed: 1" │ │ 5 │ 'F' │ 'PASS' │ 'Simultaneous /analyze calls returned statuses: [200, 409], 
+    0 5xx errors; exactly 1 AIUsage SUCCESS row, dailyUsed: 1, final DB status: COMPLETED' │ │ 6 │ 'G' │ 'PASS' │ 'Other user POST /analyze -> 404 [RESUME_NOT_FOUND] (ownership convention respected); Unauthenticated POST /analyze -> 401 [UNAUTHORIZED]' │
     
